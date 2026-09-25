@@ -14,7 +14,7 @@ import {
   writeBatch,
   serverTimestamp 
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import { Institution } from "@/lib/types";
 import { Header } from "@/components/Header";
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -294,7 +294,7 @@ export default function InstitutionsPage() {
     });
   };
 
-  // Image Upload Handler (Supports all formats: AVIF, WEBP, PNG, JPG, SVG, GIF, etc.)
+  // Image Upload Handler (Routes through /api/upload server proxy for CDN URL with inline fallback)
   const handleFileUpload = async (file: File) => {
     const isImage = file.type.startsWith("image/") || /\.(avif|webp|png|jpe?g|svg|gif|bmp|ico)$/i.test(file.name);
     if (!isImage) {
@@ -307,7 +307,34 @@ export default function InstitutionsPage() {
       setUploadSuccess(false);
 
       const optimizedBase64 = await compressImage(file);
-      setLogoUrl(optimizedBase64);
+      let finalLogoUrl = optimizedBase64;
+
+      try {
+        const idToken = await auth.currentUser?.getIdToken();
+        if (idToken) {
+          const uploadRes = await fetch("/api/upload", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({
+              base64Image: optimizedBase64,
+              name: shortName || name || file.name,
+            }),
+          });
+          if (uploadRes.ok) {
+            const data = await uploadRes.json();
+            if (data.url) {
+              finalLogoUrl = data.url;
+            }
+          }
+        }
+      } catch {
+        // Fallback to optimizedBase64 if offline or server proxy unreachable
+      }
+
+      setLogoUrl(finalLogoUrl);
       setUploadSuccess(true);
     } catch (err: any) {
       console.error("Logo processing error:", err);

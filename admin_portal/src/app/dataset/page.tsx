@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { collection, onSnapshot, query, orderBy, doc, deleteDoc, updateDoc, writeBatch } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import { AiTrainingSample } from "@/lib/types";
 import { Header } from "@/components/Header";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { SkeletonCardGrid } from "@/components/Skeleton";
-import { downloadJsonFile, downloadCsvFile } from "@/lib/exportUtils";
+import { downloadJsonFile, downloadCsvFile, downloadJsonlFile } from "@/lib/exportUtils";
 import { 
   Database, 
   Search, 
@@ -45,6 +45,7 @@ export default function DatasetLabPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
+  const hasInitialSyncedRef = useRef(false);
 
   useEffect(() => {
     // Index-free direct collection listener with robust client-side sort
@@ -65,12 +66,18 @@ export default function DatasetLabPage() {
       setSamples(list);
       setIsLoading(false);
 
-      if (list.length > 0) {
-        fetch("/api/mongodb/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ collectionName: "ai_training_datasets", documents: list })
-        }).catch(() => {});
+      if (!hasInitialSyncedRef.current && list.length > 0) {
+        hasInitialSyncedRef.current = true;
+        auth.currentUser?.getIdToken().then((idToken) => {
+          fetch("/api/mongodb/sync", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+            },
+            body: JSON.stringify({ collectionName: "ai_training_datasets", documents: list })
+          }).catch(() => {});
+        });
       }
     }, (err: any) => {
       console.warn("Dataset snapshot notice:", err.message);
@@ -224,6 +231,59 @@ export default function DatasetLabPage() {
     showToast(`Exported ${cleanSamples.length} clean samples to CSV!`);
   };
 
+  const exportFineTuningJsonl = (selectedOnly: boolean = false) => {
+    const SYSTEM_PROMPT =
+      "You are an expert schedule extraction AI. Extract every schedule entry from the provided university study load, COR, or work roster text and return ONLY a JSON array matching the schema: [{title, category, daysOfWeek, startTime, endTime, spansNextDay, location, notes}].";
+
+    const candidatePool = selectedOnly
+      ? samples.filter((s) => selectedIds.has(s.id))
+      : samples.some((s) => s.qualityStatus === "clean")
+      ? samples.filter((s) => s.qualityStatus === "clean")
+      : samples.filter((s) => s.qualityStatus !== "flagged");
+
+    const validSamples = candidatePool.filter(
+      (s) =>
+        (s.rawOcrText || "").trim().length > 10 &&
+        Array.isArray(s.verifiedEntries) &&
+        s.verifiedEntries.length > 0
+    );
+
+    if (validSamples.length === 0) {
+      showToast("No valid training samples with both OCR text and verified entries found.");
+      return;
+    }
+
+    const jsonlLines = validSamples.map((s) => {
+      const sanitizedEntries = (s.verifiedEntries || []).map((entry) => {
+        const raw = entry as unknown as Record<string, unknown>;
+        return {
+          title: entry.title || "Untitled",
+          category: entry.category || "class",
+          daysOfWeek: Array.isArray(entry.daysOfWeek) ? entry.daysOfWeek : [],
+          startTime: entry.startTime || "08:00",
+          endTime: entry.endTime || "09:00",
+          spansNextDay: Boolean(raw.spansNextDay),
+          location: entry.location ?? null,
+          notes: (raw.notes as string | undefined) ?? null,
+        };
+      });
+
+      return {
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: (s.rawOcrText || "").trim() },
+          { role: "assistant", content: JSON.stringify(sanitizedEntries) },
+        ],
+      };
+    });
+
+    downloadJsonlFile(
+      `reminda_finetune_${selectedOnly ? "selected" : "groundtruth"}_${new Date().toISOString().slice(0, 10)}.jsonl`,
+      jsonlLines
+    );
+    showToast(`Exported ${jsonlLines.length} ChatML .jsonl examples for LLM Fine-Tuning!`);
+  };
+
   const filtered = samples.filter((s) => {
     const matchesSearch = 
       (s.institutionName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -316,6 +376,14 @@ export default function DatasetLabPage() {
               </button>
 
               <button
+                onClick={() => exportFineTuningJsonl(true)}
+                className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>.JSONL</span>
+              </button>
+
+              <button
                 onClick={() => setIsBatchDeleting(true)}
                 className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
               >
@@ -342,7 +410,14 @@ export default function DatasetLabPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              onClick={() => exportFineTuningJsonl(false)}
+              className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-colors flex items-center gap-2"
+            >
+              <Sparkles className="w-4 h-4" />
+              Export .jsonl (Fine-Tune)
+            </button>
             <button
               onClick={() => exportJSON(true)}
               className="px-4 py-2.5 rounded-2xl bg-white dark:bg-[#1C1D2B] border border-slate-200 dark:border-[#282A3D]/80 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#25273A]/60 font-bold text-xs shadow-xs transition-colors flex items-center gap-2"
@@ -364,8 +439,8 @@ export default function DatasetLabPage() {
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <div className="p-5 rounded-3xl bg-white dark:bg-[#1C1D2B] border border-slate-200 dark:border-[#282A3D]/70 shadow-xs flex items-center justify-between">
             <div>
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-300 dark:text-slate-400 uppercase tracking-wider">Total Scans</span>
-              <p className="text-2xl font-black text-slate-900 dark:text-white dark:text-white mt-1">{samples.length}</p>
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">Total Scans</span>
+              <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{samples.length}</p>
             </div>
             <div className="p-3 rounded-2xl bg-blue-50 text-blue-600 font-bold">
               <Database className="w-5 h-5" />
@@ -375,7 +450,7 @@ export default function DatasetLabPage() {
           <div className="p-5 rounded-3xl bg-white dark:bg-[#1C1D2B] border border-slate-200 dark:border-[#282A3D]/70 shadow-xs flex items-center justify-between">
             <div>
               <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Clean & High Quality</span>
-              <p className="text-2xl font-black text-slate-900 dark:text-white dark:text-white mt-1">{cleanCount}</p>
+              <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{cleanCount}</p>
             </div>
             <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-600 font-bold">
               <Sparkles className="w-5 h-5" />
@@ -395,7 +470,7 @@ export default function DatasetLabPage() {
           <div className="p-5 rounded-3xl bg-white dark:bg-[#1C1D2B] border border-slate-200 dark:border-[#282A3D]/70 shadow-xs flex items-center justify-between">
             <div>
               <span className="text-xs font-bold text-rose-500 uppercase tracking-wider">Flagged / Blurred</span>
-              <p className="text-2xl font-black text-slate-900 dark:text-white dark:text-white mt-1">{flaggedCount}</p>
+              <p className="text-2xl font-black text-slate-900 dark:text-white mt-1">{flaggedCount}</p>
             </div>
             <div className="p-3 rounded-2xl bg-rose-50 text-rose-600 font-bold">
               <Trash2 className="w-5 h-5" />
@@ -412,15 +487,15 @@ export default function DatasetLabPage() {
               placeholder="Search by school, user role, or extracted text..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white dark:bg-[#1C1D2B] border border-slate-200 dark:border-[#282A3D]/80 dark:border-[#282A3D] text-xs font-semibold text-slate-800 dark:text-slate-200 dark:text-slate-200 placeholder:text-slate-400 focus:outline-blue-600 shadow-xs"
+              className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white dark:bg-[#1C1D2B] border border-slate-200 dark:border-[#282A3D]/80 text-xs font-semibold text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-blue-600 shadow-xs"
             />
           </div>
 
-          <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-white dark:bg-[#1C1D2B] border border-slate-200 dark:border-[#282A3D]/70 dark:border-[#282A3D] shadow-xs">
+          <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-white dark:bg-[#1C1D2B] border border-slate-200 dark:border-[#282A3D]/70 shadow-xs">
             <button
               onClick={() => setSelectedQuality("all")}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                selectedQuality === "all" ? "bg-slate-900 text-white shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:text-white dark:text-white"
+                selectedQuality === "all" ? "bg-slate-900 text-white shadow-xs" : "text-slate-600 hover:text-slate-900 dark:text-white"
               }`}
             >
               All ({samples.length})
@@ -456,9 +531,9 @@ export default function DatasetLabPage() {
         {isLoading ? (
           <SkeletonCardGrid count={6} />
         ) : filtered.length === 0 ? (
-          <div className="py-20 text-center rounded-3xl bg-white dark:bg-[#1C1D2B] border border-slate-200 dark:border-[#282A3D]/70 dark:border-[#282A3D] text-slate-400 text-xs space-y-2">
+          <div className="py-20 text-center rounded-3xl bg-white dark:bg-[#1C1D2B] border border-slate-200 dark:border-[#282A3D] text-slate-400 text-xs space-y-2">
             <Database className="w-10 h-10 mx-auto text-slate-300" />
-            <p className="font-bold text-sm text-slate-800 dark:text-slate-200 dark:text-slate-200">No training samples found</p>
+            <p className="font-bold text-sm text-slate-800 dark:text-slate-200">No training samples found</p>
             <p className="text-slate-400">Telemetry will automatically appear here when mobile users scan schedules with MMA Spatial Parser.</p>
           </div>
         ) : (
@@ -514,7 +589,7 @@ export default function DatasetLabPage() {
                         </div>
                         <div>
                           <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">{s.institutionName || "Unknown Institution"}</h4>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-300 dark:text-slate-400 font-medium">
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
                             Role: {s.role} • Platform: {s.platform || "Android"} • App: {s.appVersion || "v1.0.0"}
                           </p>
                         </div>
@@ -529,7 +604,7 @@ export default function DatasetLabPage() {
                             ? "bg-emerald-50 text-emerald-600 border border-emerald-200/60" 
                             : s.qualityStatus === "flagged"
                             ? "bg-rose-50 text-rose-600 border border-rose-200/60"
-                            : "bg-slate-100 dark:bg-[#25273A] text-slate-700 dark:text-slate-300 dark:text-slate-300"
+                            : "bg-slate-100 dark:bg-[#25273A] text-slate-700 dark:text-slate-300"
                         }`}>
                           {(s.qualityStatus || "unreviewed").toUpperCase()}
                         </span>
@@ -539,9 +614,9 @@ export default function DatasetLabPage() {
                             e.stopPropagation();
                             openEditModal(s);
                           }}
-                          className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-[#25273A]/60 hover:bg-slate-100 dark:bg-[#25273A] text-slate-700 dark:text-slate-300 dark:text-slate-300 font-bold text-xs flex items-center gap-1 transition-colors"
+                          className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-[#25273A]/60 hover:bg-slate-100 text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center gap-1 transition-colors"
                         >
-                          <Edit3 className="w-3.5 h-3.5 text-slate-500 dark:text-slate-300 dark:text-slate-400" />
+                          <Edit3 className="w-3.5 h-3.5 text-slate-500 dark:text-slate-300" />
                           <span>Annotate</span>
                         </button>
 
@@ -561,7 +636,7 @@ export default function DatasetLabPage() {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs">
                     <div className="space-y-1">
                       <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Raw OCR Stream</span>
-                      <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#25273A]/60 border border-slate-200 dark:border-[#282A3D]/60 font-mono text-[11px] text-slate-700 dark:text-slate-300 dark:text-slate-300 max-h-40 overflow-y-auto whitespace-pre-wrap">
+                      <div className="p-3 rounded-2xl bg-slate-50 dark:bg-[#25273A]/60 border border-slate-200 dark:border-[#282A3D]/60 font-mono text-[11px] text-slate-700 dark:text-slate-300 max-h-40 overflow-y-auto whitespace-pre-wrap">
                         {s.rawOcrText || "No raw text available"}
                       </div>
                     </div>
@@ -574,8 +649,8 @@ export default function DatasetLabPage() {
                       <div className="space-y-1.5 max-h-40 overflow-y-auto">
                         {s.verifiedEntries?.map((entry, idx) => (
                           <div key={idx} className="p-2 rounded-xl bg-white dark:bg-[#25273A] border border-blue-100/80 dark:border-[#282A3D] text-[11px] flex items-center justify-between">
-                            <span className="font-bold text-slate-900 dark:text-white dark:text-white">{entry.title}</span>
-                            <span className="text-slate-500 dark:text-slate-300 dark:text-slate-400 font-mono">{entry.startTime} - {entry.endTime} ({entry.location})</span>
+                            <span className="font-bold text-slate-900 dark:text-white">{entry.title}</span>
+                            <span className="text-slate-500 dark:text-slate-400 font-mono">{entry.startTime} - {entry.endTime} ({entry.location})</span>
                           </div>
                         ))}
                       </div>
@@ -589,24 +664,24 @@ export default function DatasetLabPage() {
             {/* Pagination Controls */}
             {totalPages > 1 && (
               <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-[#1C1D2B] rounded-2xl border border-slate-200 dark:border-[#282A3D]/70 shadow-xs mt-6">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-300 dark:text-slate-400">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                   Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filtered.length)} to {Math.min(currentPage * itemsPerPage, filtered.length)} of {filtered.length} telemetry samples
                 </span>
                 <div className="flex items-center gap-2">
                   <button
                     disabled={currentPage === 1}
                     onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-[#282A3D] text-xs font-bold text-slate-700 dark:text-slate-300 dark:text-slate-300 bg-white hover:bg-slate-50 dark:bg-[#25273A]/60 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-[#282A3D] text-xs font-bold text-slate-700 dark:text-slate-300 bg-white hover:bg-slate-50 dark:bg-[#25273A]/60 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     Previous
                   </button>
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 dark:text-slate-200 px-2">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 px-2">
                     Page {currentPage} of {totalPages}
                   </span>
                   <button
                     disabled={currentPage === totalPages}
                     onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-[#282A3D] text-xs font-bold text-slate-700 dark:text-slate-300 dark:text-slate-300 bg-white hover:bg-slate-50 dark:bg-[#25273A]/60 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-[#282A3D] text-xs font-bold text-slate-700 dark:text-slate-300 bg-white hover:bg-slate-50 dark:bg-[#25273A]/60 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     Next
                   </button>
@@ -618,7 +693,7 @@ export default function DatasetLabPage() {
 
         {/* Annotator Modal */}
         {editingSample && typeof document !== "undefined" && createPortal(
-          <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150">
+          <div className="fixed inset-0 z-9999 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150">
             <div className="w-full max-w-2xl bg-white dark:bg-[#1C1D2B] rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-[#282A3D] space-y-4 animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#282A3D]">
                 <div className="flex items-center gap-2.5">
@@ -626,7 +701,7 @@ export default function DatasetLabPage() {
                     <Edit3 className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="font-extrabold text-sm text-slate-900 dark:text-white dark:text-white">Annotate AI Training Sample</h3>
+                    <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">Annotate AI Training Sample</h3>
                     <p className="text-[11px] text-slate-400">{editingSample.institutionName} • {editingSample.role}</p>
                   </div>
                 </div>
@@ -644,7 +719,7 @@ export default function DatasetLabPage() {
                       type="button"
                       onClick={() => setEditQuality("clean")}
                       className={`p-2.5 rounded-xl font-bold border transition-colors ${
-                        editQuality === "clean" ? "bg-emerald-500 text-white border-emerald-500 shadow-xs" : "bg-slate-50 dark:bg-[#25273A]/60 text-slate-700 dark:text-slate-300 dark:text-slate-300 border-slate-200 dark:border-[#282A3D]"
+                        editQuality === "clean" ? "bg-emerald-500 text-white border-emerald-500 shadow-xs" : "bg-slate-50 dark:bg-[#25273A]/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-[#282A3D]"
                       }`}
                     >
                       Clean & High Quality
@@ -653,7 +728,7 @@ export default function DatasetLabPage() {
                       type="button"
                       onClick={() => setEditQuality("unreviewed")}
                       className={`p-2.5 rounded-xl font-bold border transition-colors ${
-                        editQuality === "unreviewed" ? "bg-slate-900 text-white border-slate-900 shadow-xs" : "bg-slate-50 dark:bg-[#25273A]/60 text-slate-700 dark:text-slate-300 dark:text-slate-300 border-slate-200 dark:border-[#282A3D]"
+                        editQuality === "unreviewed" ? "bg-slate-900 text-white border-slate-900 shadow-xs" : "bg-slate-50 dark:bg-[#25273A]/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-[#282A3D]"
                       }`}
                     >
                       Unreviewed
@@ -662,7 +737,7 @@ export default function DatasetLabPage() {
                       type="button"
                       onClick={() => setEditQuality("flagged")}
                       className={`p-2.5 rounded-xl font-bold border transition-colors ${
-                        editQuality === "flagged" ? "bg-rose-500 text-white border-rose-500 shadow-xs" : "bg-slate-50 dark:bg-[#25273A]/60 text-slate-700 dark:text-slate-300 dark:text-slate-300 border-slate-200 dark:border-[#282A3D]"
+                        editQuality === "flagged" ? "bg-rose-500 text-white border-rose-500 shadow-xs" : "bg-slate-50 dark:bg-[#25273A]/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-[#282A3D]"
                       }`}
                     >
                       Flagged / Blurred
@@ -677,12 +752,12 @@ export default function DatasetLabPage() {
                     rows={6}
                     value={editOcrText}
                     onChange={(e) => setEditOcrText(e.target.value)}
-                    className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-[#25273A]/60 border border-slate-200 dark:border-[#282A3D] text-slate-900 dark:text-white dark:text-white font-mono text-[11px] focus:outline-blue-600 leading-relaxed"
+                    className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-[#25273A]/60 border border-slate-200 dark:border-[#282A3D] text-slate-900 dark:text-white font-mono text-[11px] focus:outline-blue-600 leading-relaxed"
                   />
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-[#282A3D]">
-                  <button onClick={() => setEditingSample(null)} className="px-4 py-2 rounded-xl text-slate-500 dark:text-slate-300 dark:text-slate-400 hover:bg-slate-100 dark:bg-[#25273A] font-bold">
+                  <button onClick={() => setEditingSample(null)} className="px-4 py-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:bg-[#25273A] font-bold">
                     Cancel
                   </button>
                   <button

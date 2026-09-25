@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
+import { adminAuth, adminDb, verifyAdminRequest } from "@/lib/firebaseAdmin";
 import clientPromise from "@/lib/mongodb";
 
 export async function POST(req: NextRequest) {
   try {
+    const authResult = await verifyAdminRequest(req);
+    if (!authResult.authorized) {
+      return NextResponse.json(
+        { success: false, error: authResult.error },
+        { status: authResult.status || 401 }
+      );
+    }
+
     const body = await req.json();
     const { uid } = body;
 
@@ -57,7 +65,7 @@ export async function POST(req: NextRequest) {
     try {
       const client = await clientPromise;
       if (client) {
-        const db = client.db();
+        const db = client.db("reminda_warehouse");
         await db.collection("users").deleteOne({ $or: [{ id: uid }, { uid: uid }, { _id: uid as any }] });
         await db.collection("schedules").deleteMany({ userId: uid });
         await db.collection("profiles").deleteMany({ userId: uid });

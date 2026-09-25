@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
+import { verifyAdminRequest } from "@/lib/firebaseAdmin";
 
 export async function POST(req: Request) {
   try {
+    const authResult = await verifyAdminRequest(req);
+    if (!authResult.authorized) {
+      return NextResponse.json({ error: authResult.error }, { status: authResult.status || 401 });
+    }
+
     const body = await req.json();
     const { collectionName, documents } = body;
 
@@ -46,8 +52,13 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const authResult = await verifyAdminRequest(req);
+    if (!authResult.authorized) {
+      return NextResponse.json({ error: authResult.error }, { status: authResult.status || 401 });
+    }
+
     const client = await clientPromise;
     const db = client.db("reminda_warehouse");
     const collections = await db.listCollections().toArray();

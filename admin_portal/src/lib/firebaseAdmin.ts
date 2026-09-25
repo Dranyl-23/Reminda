@@ -55,4 +55,37 @@ if (!getApps().length) {
 
 export const adminAuth: Auth = getAuth(app);
 export const adminDb: Firestore = getFirestore(app);
+
+export const AUTHORIZED_ADMIN_EMAILS = [
+  "alfielynard23@gmail.com",
+  "alfielynardrosalita@gmail.com",
+  "dranyl23@gmail.com"
+];
+
+export async function verifyAdminRequest(req: Request): Promise<{ authorized: boolean; email?: string; error?: string; status?: number }> {
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return { authorized: false, error: "Unauthorized: Missing Authorization header.", status: 401 };
+  }
+
+  const token = authHeader.split("Bearer ")[1]?.trim();
+  if (!token) {
+    return { authorized: false, error: "Unauthorized: Missing Bearer token.", status: 401 };
+  }
+
+  try {
+    const decoded = await adminAuth.verifyIdToken(token);
+    const email = decoded.email?.toLowerCase();
+    const isAdmin = decoded.admin === true || (Boolean(email) && AUTHORIZED_ADMIN_EMAILS.includes(email!));
+
+    if (!isAdmin) {
+      return { authorized: false, error: "Forbidden: Account lacks administrator privileges.", status: 403 };
+    }
+
+    return { authorized: true, email };
+  } catch (err: any) {
+    return { authorized: false, error: `Authentication failed: ${err.message}`, status: 401 };
+  }
+}
+
 export default app;

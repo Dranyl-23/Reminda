@@ -24,7 +24,7 @@ function formatFeedbackDate(timestamp: any, createdAtIso?: string): string {
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { collection, onSnapshot, query, orderBy, doc, deleteDoc, updateDoc, writeBatch } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import { UserFeedback, UserAccount } from "@/lib/types";
 import { Header } from "@/components/Header";
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -86,9 +86,13 @@ export default function FeedbacksPage() {
     if (data.length === 0 || isSyncing) return;
     setIsSyncing(true);
     try {
+      const idToken = await auth.currentUser?.getIdToken();
       await fetch("/api/mongodb/sync", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
         body: JSON.stringify({ collectionName: "customer_feedbacks", documents: data })
       });
       setPendingSync(false);

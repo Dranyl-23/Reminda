@@ -41,3 +41,20 @@ export function downloadCsvFile(filename: string, headers: string[], rows: (stri
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Helper to download JSON Lines (.jsonl) data for LLM Fine-Tuning (OpenAI / Llama / Gemini ChatML format)
+ */
+export function downloadJsonlFile(filename: string, lines: Record<string, unknown>[]) {
+  if (typeof window === "undefined") return;
+  const jsonlContent = lines.map((line) => JSON.stringify(line)).join("\n") + "\n";
+  const blob = new Blob([jsonlContent], { type: "application/jsonl;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}

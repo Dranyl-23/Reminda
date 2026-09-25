@@ -11,7 +11,7 @@ import {
   doc,
   deleteDoc 
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import { UserAccount, UserProfileDoc, UserScheduleDoc } from "@/lib/types";
 import { Header } from "@/components/Header";
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -76,9 +76,13 @@ export default function UsersPage() {
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     try {
+      const idToken = await auth.currentUser?.getIdToken();
       const res = await fetch("/api/users/delete", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
         body: JSON.stringify({ uid: deleteTarget.id }),
       });
       const result = await res.json();
