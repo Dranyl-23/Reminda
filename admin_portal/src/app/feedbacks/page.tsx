@@ -514,8 +514,8 @@ export default function FeedbacksPage() {
                   >
                     <div>
                       {/* User Header & Star Rating */}
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div className="flex items-center gap-3">
+                      <div className="flex items-start justify-between gap-2.5 mb-3">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
                           {/* Selection Checkbox */}
                           <div className="shrink-0">
                             {isSelected ? (
@@ -540,21 +540,26 @@ export default function FeedbacksPage() {
                               </div>
                             );
                           })()}
-                          <div>
-                            <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">{f.userName || "User"}</h4>
-                            <p className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
-                              <Mail className="w-3 h-3 text-slate-400" />
-                              {f.contactEmail || "Anonymous / Guest"}
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-extrabold text-sm text-slate-900 dark:text-white truncate">
+                              {f.userName || "User"}
+                            </h4>
+                            <p
+                              className="text-[11px] text-slate-400 font-mono flex items-center gap-1 min-w-0"
+                              title={f.contactEmail || "Anonymous / Guest"}
+                            >
+                              <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                              <span className="truncate">{f.contactEmail || "Anonymous / Guest"}</span>
                             </p>
                           </div>
                         </div>
 
                         {/* Rating */}
-                        <div className="flex items-center gap-0.5 text-yellow-400">
+                        <div className="flex items-center gap-0.5 text-yellow-400 shrink-0 pt-0.5">
                           {Array.from({ length: 5 }).map((_, i) => (
                             <Star
                               key={i}
-                              className={`w-3.5 h-3.5 ${
+                              className={`w-3.5 h-3.5 shrink-0 ${
                                 i < (f.rating || 5) ? "fill-yellow-400 text-yellow-400" : "text-slate-200"
                               }`}
                             />
