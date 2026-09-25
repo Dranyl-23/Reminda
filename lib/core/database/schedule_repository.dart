@@ -6,51 +6,57 @@ class ScheduleRepository {
   static const String boxName = 'schedules_box';
   Box<String>? _box;
 
-  // BUG FIX (High #10): The _box field was declared `late` and accessed
-  // directly in synchronous methods without any initialization guard.
-  // If any method is called before init() completes, a LateInitializationError
-  // is thrown and the app crashes. Using a nullable field + _safeBox getter
-  // silently returns empty results instead of crashing.
+  /// Synchronized in-memory cache so getAllSchedules() and getScheduleById()
+  /// execute in O(1) / 0ms without repeated jsonDecode parsing on the main thread.
+  Map<String, ScheduleEntry>? _memoryCache;
+
   Box<String>? get _safeBox => (_box != null && _box!.isOpen) ? _box : null;
 
   Future<void> init() async {
     await Hive.initFlutter();
     _box = await Hive.openBox<String>(boxName);
+    _rebuildCacheFromDisk();
   }
 
-  List<ScheduleEntry> getAllSchedules() {
+  Map<String, ScheduleEntry> _ensureCache() {
+    if (_memoryCache != null) return _memoryCache!;
+    return _rebuildCacheFromDisk();
+  }
+
+  Map<String, ScheduleEntry> _rebuildCacheFromDisk() {
     final box = _safeBox;
-    if (box == null) return [];
-    final List<ScheduleEntry> entries = [];
+    if (box == null) return const {};
+    final cache = <String, ScheduleEntry>{};
     for (final rawJson in box.values) {
       try {
-        final Map<String, dynamic> map = jsonDecode(rawJson) as Map<String, dynamic>;
-        entries.add(ScheduleEntry.fromJson(map));
-      } catch (e) {
+        final Map<String, dynamic> map =
+            jsonDecode(rawJson) as Map<String, dynamic>;
+        final entry = ScheduleEntry.fromJson(map);
+        cache[entry.id] = entry;
+      } catch (_) {
         // Skip corrupted entries
       }
     }
-    // Sort by startTime
-    entries.sort((a, b) => a.startTime.compareTo(b.startTime));
+    _memoryCache = cache;
+    return cache;
+  }
+
+  List<ScheduleEntry> getAllSchedules() {
+    final cache = _ensureCache();
+    if (cache.isEmpty) return [];
+    final entries = cache.values.toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
     return entries;
   }
 
   ScheduleEntry? getScheduleById(String id) {
-    final box = _safeBox;
-    if (box == null) return null;
-    final rawJson = box.get(id);
-    if (rawJson == null) return null;
-    try {
-      final Map<String, dynamic> map = jsonDecode(rawJson) as Map<String, dynamic>;
-      return ScheduleEntry.fromJson(map);
-    } catch (_) {
-      return null;
-    }
+    return _ensureCache()[id];
   }
 
   Future<void> saveSchedule(ScheduleEntry entry) async {
     final box = _safeBox;
     if (box == null) return;
+    _ensureCache()[entry.id] = entry;
     final jsonStr = jsonEncode(entry.toJson());
     await box.put(entry.id, jsonStr);
   }
@@ -58,14 +64,17 @@ class ScheduleRepository {
   Future<void> saveBatch(List<ScheduleEntry> entries) async {
     final box = _safeBox;
     if (box == null) return;
+    final cache = _ensureCache();
     final Map<String, String> map = {};
     for (final entry in entries) {
+      cache[entry.id] = entry;
       map[entry.id] = jsonEncode(entry.toJson());
     }
     await box.putAll(map);
   }
 
   Future<void> deleteSchedule(String id) async {
+    _memoryCache?.remove(id);
     await _safeBox?.delete(id);
   }
 
@@ -78,6 +87,7 @@ class ScheduleRepository {
   }
 
   Future<void> clearAll() async {
+    _memoryCache?.clear();
     await _safeBox?.clear();
   }
 }

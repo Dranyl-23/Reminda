@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/database/schedule_share_service.dart';
 import '../../../core/utils/time_utils.dart';
 import '../../../models/schedule_entry.dart';
 import '../../../providers/schedule_provider.dart';
+import '../../scanner/review_scanned_schedules_view.dart';
 
 class ScheduleSummaryModal extends ConsumerWidget {
   const ScheduleSummaryModal({super.key});
@@ -269,8 +272,9 @@ class ScheduleSummaryModal extends ConsumerWidget {
                   onPressed: () {
                     final text = _generateTextSummary(schedules);
                     Clipboard.setData(ClipboardData(text: text));
+                    final messenger = ScaffoldMessenger.of(context);
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    messenger.showSnackBar(
                       const SnackBar(
                         content: Text('Timetable summary copied to clipboard!'),
                         backgroundColor: Color(0xFF10B981),
@@ -289,6 +293,42 @@ class ScheduleSummaryModal extends ConsumerWidget {
                     minimumSize: const Size(double.infinity, 44),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _handleGenerateShareCode(context, schedules),
+                        icon: const Icon(Icons.qr_code_2_rounded, size: 17, color: Colors.white),
+                        label: const Text(
+                          'Get 6-Digit Code',
+                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Colors.white),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.white54, width: 1.3),
+                          minimumSize: const Size(0, 42),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _handleImportByShareCode(context),
+                        icon: const Icon(Icons.download_rounded, size: 17, color: Colors.white),
+                        label: const Text(
+                          'Import Code',
+                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Colors.white),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.white54, width: 1.3),
+                          minimumSize: const Size(0, 42),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -351,6 +391,242 @@ class ScheduleSummaryModal extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _handleGenerateShareCode(BuildContext context, List<ScheduleEntry> schedules) async {
+    final activeSchedules = schedules.where((e) => e.isActive).toList();
+    if (activeSchedules.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No active schedules to share yet!'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    String? shareCode;
+    try {
+      shareCode = await ScheduleShareService.instance.publishScheduleBundle(
+        schedules: activeSchedules,
+      );
+    } catch (_) {
+      shareCode = null;
+    }
+
+    if (!context.mounted) return;
+    Navigator.pop(context); // Dismiss loading dialog
+
+    if (shareCode == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not generate share code. Check your internet connection.'),
+          backgroundColor: Color(0xFFEF4444),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final String validCode = shareCode;
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.qr_code_2_rounded, color: AppColors.primary),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '6-Digit Block Code',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Share this 6-digit code with your classmates or co-workers so they can import all your active schedules in 1 tap:',
+              style: TextStyle(fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+              ),
+              child: SelectableText(
+                validCode,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 6,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Includes ${activeSchedules.length} active class/shift schedules',
+              style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: validCode));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Code $validCode copied to clipboard!'),
+                  backgroundColor: const Color(0xFF10B981),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            icon: const Icon(Icons.copy_rounded, size: 16),
+            label: const Text('Copy Code', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () {
+              Navigator.pop(dialogCtx);
+              Share.share(
+                '📚 Import my class/work schedule on Reminda (Schedly)!\n\n'
+                '🔑 6-Digit Share Code: $validCode\n'
+                '(${activeSchedules.length} schedules included — open Timetable Insights > Import Code)',
+                subject: 'Reminda 6-Digit Schedule Code: $validCode',
+              );
+            },
+            icon: const Icon(Icons.share_rounded, size: 16),
+            label: const Text('Share', style: TextStyle(fontWeight: FontWeight.w800)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleImportByShareCode(BuildContext context) async {
+    final codeController = TextEditingController();
+    final enteredCode = await showDialog<String>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.download_rounded, color: AppColors.primary),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Import 6-Digit Code',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter the 6-digit class block code shared by your classmate or colleague:',
+              style: TextStyle(fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: codeController,
+              textCapitalization: TextCapitalization.characters,
+              maxLength: 6,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 5,
+              ),
+              decoration: InputDecoration(
+                hintText: '123456',
+                counterText: '',
+                filled: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(dialogCtx, codeController.text.trim()),
+            child: const Text('Fetch Schedules', style: TextStyle(fontWeight: FontWeight.w800)),
+          ),
+        ],
+      ),
+    );
+
+    if (enteredCode == null || enteredCode.isEmpty || !context.mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    SharedScheduleBundle? bundle;
+    try {
+      bundle = await ScheduleShareService.instance.fetchByShareCode(enteredCode);
+    } catch (_) {
+      bundle = null;
+    }
+
+    if (!context.mounted) return;
+    Navigator.pop(context); // Dismiss loading
+
+    if (bundle == null || bundle.schedules.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Code "${enteredCode.toUpperCase()}" not found or has no schedules.'),
+          backgroundColor: const Color(0xFFEF4444),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final validBundle = bundle;
+    final navigator = Navigator.of(context);
+    navigator.pop(); // Close summary modal
+    navigator.push(
+      MaterialPageRoute(
+        builder: (_) => ReviewScannedSchedulesView(
+          initialEntries: validBundle.schedules,
+        ),
       ),
     );
   }

@@ -532,15 +532,29 @@ class _WeeklyTimetableGridState extends State<WeeklyTimetableGrid> {
         (e) => e.isActive && e.daysOfWeek.contains(weekday),
       );
 
-      for (final entry in dayEntries) {
+      // Also include overnight entries from the PREVIOUS day that spill into this day
+      final prevWeekday = weekday == 1 ? 7 : weekday - 1;
+      final overnightSpillover = widget.schedules.where(
+        (e) => e.isActive && e.spansNextDay && e.daysOfWeek.contains(prevWeekday),
+      );
+
+      // Combine both: regular entries for this day + overnight spillover from yesterday
+      final allDayEntries = [...dayEntries, ...overnightSpillover];
+
+      for (final entry in allDayEntries) {
         final startMinutes = _timeToMinutes(entry.startTime);
         final endMinutes = _timeToMinutes(entry.endTime);
 
+        // For overnight spillover entries from previous day, start from midnight
+        final bool isSpillover = entry.spansNextDay && !entry.daysOfWeek.contains(weekday);
+        final effectiveStartMinutes = isSpillover ? 0 : startMinutes;
+        final effectiveEndMinutes = isSpillover ? endMinutes : endMinutes;
+
         final gridStartMinutes = _startHour * 60;
-        final startOffsetMinutes = startMinutes - gridStartMinutes;
-        final durationMinutes = endMinutes > startMinutes
-            ? (endMinutes - startMinutes)
-            : (24 * 60 - startMinutes + endMinutes); // Midnight span
+        final startOffsetMinutes = effectiveStartMinutes - gridStartMinutes;
+        final durationMinutes = effectiveEndMinutes > effectiveStartMinutes
+            ? (effectiveEndMinutes - effectiveStartMinutes)
+            : (isSpillover ? effectiveEndMinutes : (24 * 60 - effectiveStartMinutes + effectiveEndMinutes)); // Midnight span
 
         if (startOffsetMinutes + durationMinutes < 0) continue;
 

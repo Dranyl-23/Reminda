@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../models/schedule_entry.dart';
 
 class TimeUtils {
   static const List<String> weekdayShortNames = [
@@ -176,5 +177,83 @@ class TimeUtils {
       return hours == 1 ? '1 hour before' : '$hours hours before';
     }
     return '$hours hr $remainingMins min before';
+  }
+
+  /// Parses "HH:mm" into minutes from midnight (0..1439)
+  static int timeToMinutes(String time24) {
+    final tod = stringToTimeOfDay(time24);
+    return tod.hour * 60 + tod.minute;
+  }
+
+  /// Formats a DateTime into a friendly short date (e.g. "Mon, Sep 28")
+  static String formatShortDate(DateTime date) {
+    return DateFormat('EEE, MMM d').format(date);
+  }
+
+  /// Detects time overlaps between a candidate schedule and a list of existing schedules
+  static List<ScheduleConflict> findConflicts(
+    ScheduleEntry candidate,
+    List<ScheduleEntry> existingSchedules,
+  ) {
+    final List<ScheduleConflict> conflicts = [];
+    final int candStart = timeToMinutes(candidate.startTime);
+    int candEnd = timeToMinutes(candidate.endTime);
+    if (candidate.spansNextDay || candEnd <= candStart) {
+      candEnd += 24 * 60;
+    }
+
+    for (final other in existingSchedules) {
+      if (!other.isActive) continue;
+      if (other.id == candidate.id) continue;
+      if (candidate.profileId != null &&
+          other.profileId != null &&
+          candidate.profileId != other.profileId) {
+        continue;
+      }
+
+      final int otherStart = timeToMinutes(other.startTime);
+      int otherEnd = timeToMinutes(other.endTime);
+      if (other.spansNextDay || otherEnd <= otherStart) {
+        otherEnd += 24 * 60;
+      }
+
+      final overlappingDays = <int>[];
+      for (final day in candidate.daysOfWeek) {
+        if (other.daysOfWeek.contains(day)) {
+          // Both start on the same day: check [candStart, candEnd) vs [otherStart, otherEnd)
+          if (candStart < otherEnd && otherStart < candEnd) {
+            overlappingDays.add(day);
+          }
+        }
+      }
+
+      if (overlappingDays.isNotEmpty) {
+        conflicts.add(
+          ScheduleConflict(
+            conflictingEntry: other,
+            overlappingDays: overlappingDays,
+          ),
+        );
+      }
+    }
+
+    return conflicts;
+  }
+}
+
+class ScheduleConflict {
+  final ScheduleEntry conflictingEntry;
+  final List<int> overlappingDays;
+
+  const ScheduleConflict({
+    required this.conflictingEntry,
+    required this.overlappingDays,
+  });
+
+  String get summaryText {
+    final daysStr = TimeUtils.formatDaysAbbr(overlappingDays);
+    final startStr = TimeUtils.formatTo12Hour(conflictingEntry.startTime);
+    final endStr = TimeUtils.formatTo12Hour(conflictingEntry.endTime);
+    return '$daysStr • ${conflictingEntry.title} ($startStr – $endStr)';
   }
 }

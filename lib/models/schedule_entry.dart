@@ -1,4 +1,4 @@
-﻿import 'package:uuid/uuid.dart';
+import 'package:uuid/uuid.dart';
 import 'schedule_category.dart';
 
 class ScheduleEntry {
@@ -15,7 +15,9 @@ class ScheduleEntry {
   final String? colorHex;      // Optional custom color override
   final List<int> reminders;   // Lead times in minutes: [15, 60]
   final bool isActive;         // Toggle schedule & notification alarms
+  final List<String> mutedDates; // ISO dates ("YYYY-MM-DD") skipped for holiday/one-off mute
   final DateTime createdAt;
+  final int updatedAt;         // Epoch milliseconds for last modification (offline vs. cloud sync)
   final String? sourceImageId; // Reference to original screenshot if scanned
 
   ScheduleEntry({
@@ -32,11 +34,49 @@ class ScheduleEntry {
     this.colorHex,
     List<int>? reminders,
     this.isActive = true,
+    List<String>? mutedDates,
     DateTime? createdAt,
+    int? updatedAt,
     this.sourceImageId,
   })  : id = id ?? const Uuid().v4(),
         reminders = reminders ?? [15],
-        createdAt = createdAt ?? DateTime.now();
+        mutedDates = mutedDates ?? const [],
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now().millisecondsSinceEpoch;
+
+  static String dateToIso(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  bool isMutedOnDate(DateTime date) => mutedDates.contains(dateToIso(date));
+
+  /// Computes the calendar date (year, month, day, startHour, startMin) of the next occurrence
+  DateTime? nextOccurrenceDate([DateTime? from]) {
+    if (daysOfWeek.isEmpty) return null;
+    final now = from ?? DateTime.now();
+    final parts = startTime.split(':');
+    final startHour = parts.length >= 2 ? (int.tryParse(parts[0]) ?? 8) : 8;
+    final startMin = parts.length >= 2 ? (int.tryParse(parts[1]) ?? 0) : 0;
+
+    for (int offset = 0; offset <= 7; offset++) {
+      final candidate = DateTime(now.year, now.month, now.day + offset, startHour, startMin);
+      if (daysOfWeek.contains(candidate.weekday)) {
+        if (offset > 0 || candidate.isAfter(now)) {
+          return candidate;
+        }
+      }
+    }
+    return null;
+  }
+
+  String? nextOccurrenceIsoDate([DateTime? from]) {
+    final next = nextOccurrenceDate(from);
+    return next != null ? dateToIso(next) : null;
+  }
+
+  bool get isNextOccurrenceMuted {
+    final iso = nextOccurrenceIsoDate();
+    return iso != null && mutedDates.contains(iso);
+  }
 
   ScheduleEntry copyWith({
     String? id,
@@ -52,7 +92,9 @@ class ScheduleEntry {
     String? colorHex,
     List<int>? reminders,
     bool? isActive,
+    List<String>? mutedDates,
     DateTime? createdAt,
+    int? updatedAt,
     String? sourceImageId,
   }) {
     return ScheduleEntry(
@@ -69,7 +111,9 @@ class ScheduleEntry {
       colorHex: colorHex ?? this.colorHex,
       reminders: reminders ?? this.reminders,
       isActive: isActive ?? this.isActive,
+      mutedDates: mutedDates ?? this.mutedDates,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? DateTime.now().millisecondsSinceEpoch,
       sourceImageId: sourceImageId ?? this.sourceImageId,
     );
   }
@@ -89,12 +133,22 @@ class ScheduleEntry {
       'colorHex': colorHex,
       'reminders': reminders,
       'isActive': isActive,
+      'mutedDates': mutedDates,
       'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt,
       'sourceImageId': sourceImageId,
     };
   }
 
   factory ScheduleEntry.fromJson(Map<String, dynamic> json) {
+    final parsedCreatedAt = json['createdAt'] != null
+        ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
+        : DateTime.now();
+    final rawUpdatedAt = json['updatedAt'];
+    final parsedUpdatedAt = rawUpdatedAt is num
+        ? rawUpdatedAt.toInt()
+        : parsedCreatedAt.millisecondsSinceEpoch;
+
     return ScheduleEntry(
       id: json['id'] as String?,
       profileId: json['profileId'] as String?,
@@ -103,7 +157,7 @@ class ScheduleEntry {
       daysOfWeek: (json['daysOfWeek'] as List<dynamic>?)
               ?.map((e) => (e as num).toInt())
               .toList() ??
-          [DateTime.now().weekday],
+          [],
       startTime: json['startTime'] as String? ?? '08:00',
       endTime: json['endTime'] as String? ?? '09:00',
       spansNextDay: json['spansNextDay'] as bool? ?? false,
@@ -115,9 +169,12 @@ class ScheduleEntry {
               .toList() ??
           [15],
       isActive: json['isActive'] as bool? ?? true,
-      createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
-          : DateTime.now(),
+      mutedDates: (json['mutedDates'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      createdAt: parsedCreatedAt,
+      updatedAt: parsedUpdatedAt,
       sourceImageId: json['sourceImageId'] as String?,
     );
   }

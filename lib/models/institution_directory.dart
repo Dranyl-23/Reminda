@@ -356,8 +356,10 @@ class InstitutionItem {
   });
 
   static List<InstitutionItem> _cloudInstitutions = [];
+  static final ValueNotifier<int> cloudRevision = ValueNotifier<int>(0);
   static void setCloudInstitutions(List<InstitutionItem> list) {
     _cloudInstitutions = list;
+    cloudRevision.value++;
   }
 
   static String normalizeCategory(String cat, {String name = '', String shortName = ''}) {

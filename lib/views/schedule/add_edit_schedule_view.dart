@@ -156,9 +156,86 @@ class _AddEditScheduleViewState extends ConsumerState<AddEditScheduleView> {
         notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
         reminders: _reminders,
         isActive: widget.initialEntry?.isActive ?? true,
+        mutedDates: widget.initialEntry?.mutedDates,
         createdAt: widget.initialEntry?.createdAt,
         sourceImageId: widget.initialEntry?.sourceImageId,
       );
+
+      final allSchedules = ref.read(scheduleListProvider);
+      final conflicts = TimeUtils.findConflicts(entry, allSchedules);
+      if (conflicts.isNotEmpty) {
+        final saveAnyway = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 24),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Schedule Conflict',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'This schedule overlaps with existing classes/shifts:',
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 10),
+                ...conflicts.take(3).map(
+                      (c) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.schedule_rounded, size: 15, color: Color(0xFFD97706)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                c.summaryText,
+                                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Do you want to save it anyway?',
+                  style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Adjust Time', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD97706),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Save Anyway', style: TextStyle(fontWeight: FontWeight.w800)),
+              ),
+            ],
+          ),
+        );
+        if (saveAnyway != true) {
+          setState(() => _isSaving = false);
+          return;
+        }
+      }
 
       final notifier = ref.read(scheduleListProvider.notifier);
       if (_isEditing) {
@@ -195,6 +272,21 @@ class _AddEditScheduleViewState extends ConsumerState<AddEditScheduleView> {
     final startStr = TimeUtils.timeOfDayToString(_startTime);
     final endStr = TimeUtils.timeOfDayToString(_endTime);
     final durationText = TimeUtils.calculateDuration(startStr, endStr, spansNextDay: _spansNextDay);
+    final activeProfile = ref.watch(activeProfileProvider);
+    final allSchedules = ref.watch(scheduleListProvider);
+    final liveConflicts = TimeUtils.findConflicts(
+      ScheduleEntry(
+        id: widget.initialEntry?.id,
+        profileId: widget.initialEntry?.profileId ?? activeProfile?.id,
+        title: _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : 'Draft',
+        category: _selectedCategory,
+        daysOfWeek: _selectedDays,
+        startTime: startStr,
+        endTime: endStr,
+        spansNextDay: _spansNextDay,
+      ),
+      allSchedules,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -229,6 +321,52 @@ class _AddEditScheduleViewState extends ConsumerState<AddEditScheduleView> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
+            if (liveConflicts.isNotEmpty) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 18),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withValues(alpha: isDark ? 0.15 : 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.45),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, size: 18, color: Color(0xFFD97706)),
+                        SizedBox(width: 6),
+                        Text(
+                          'Time Overlap Detected',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFD97706),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    ...liveConflicts.take(2).map(
+                          (c) => Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              '• ${c.summaryText}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white : const Color(0xFF78350F),
+                              ),
+                            ),
+                          ),
+                        ),
+                  ],
+                ),
+              ),
+            ],
             // Category Selector
             const Text(
               'CATEGORY',

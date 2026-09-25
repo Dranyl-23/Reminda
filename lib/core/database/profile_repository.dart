@@ -5,6 +5,7 @@ import '../../models/schedule_profile.dart';
 class ProfileRepository {
   static const String boxName = 'profiles_box';
   Box<String>? _box;
+  List<ScheduleProfile>? _cachedProfiles;
 
   Box<String> get _safeBox {
     if (_box != null && _box!.isOpen) return _box!;
@@ -41,13 +42,17 @@ class ProfileRepository {
         ),
       ];
 
-      for (final p in defaultProfiles) {
-        await _box!.put(p.id, jsonEncode(p.toJson()));
-      }
+      final batchMap = <String, String>{
+        for (final p in defaultProfiles) p.id: jsonEncode(p.toJson()),
+      };
+      await _box!.putAll(batchMap);
+      _cachedProfiles = List<ScheduleProfile>.unmodifiable(defaultProfiles);
+    } else {
+      _rebuildCacheFromDisk();
     }
   }
 
-  List<ScheduleProfile> getAllProfiles() {
+  List<ScheduleProfile> _rebuildCacheFromDisk() {
     final List<ScheduleProfile> list = [];
     try {
       final box = _safeBox;
@@ -57,8 +62,14 @@ class ProfileRepository {
           list.add(ScheduleProfile.fromJson(map));
         } catch (_) {}
       }
+      _cachedProfiles = List<ScheduleProfile>.unmodifiable(list);
     } catch (_) {}
-    return list;
+    return _cachedProfiles ?? list;
+  }
+
+  List<ScheduleProfile> getAllProfiles() {
+    if (_cachedProfiles != null) return _cachedProfiles!;
+    return _rebuildCacheFromDisk();
   }
 
   ScheduleProfile? getActiveProfile() {
@@ -73,21 +84,29 @@ class ProfileRepository {
   Future<void> setActiveProfile(String profileId) async {
     final all = getAllProfiles();
     final box = _safeBox;
+    final updatedList = <ScheduleProfile>[];
+    final batchMap = <String, String>{};
     for (final p in all) {
       final updated = p.copyWith(isActive: p.id == profileId);
-      await box.put(p.id, jsonEncode(updated.toJson()));
+      updatedList.add(updated);
+      batchMap[p.id] = jsonEncode(updated.toJson());
     }
+    _cachedProfiles = List<ScheduleProfile>.unmodifiable(updatedList);
+    await box.putAll(batchMap);
   }
 
   Future<void> saveProfile(ScheduleProfile profile) async {
     await _safeBox.put(profile.id, jsonEncode(profile.toJson()));
+    _rebuildCacheFromDisk();
   }
 
   Future<void> deleteProfile(String id) async {
     await _safeBox.delete(id);
+    _rebuildCacheFromDisk();
   }
 
   Future<void> clearAll() async {
+    _cachedProfiles = const [];
     try {
       await _safeBox.clear();
     } catch (_) {}

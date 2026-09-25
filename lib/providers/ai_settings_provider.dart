@@ -21,6 +21,7 @@ class AiStringSettingNotifier extends StateNotifier<String> {
         ? Hive.box(_settingsBox)
         : await Hive.openBox(_settingsBox);
     final saved = _box?.get(keyName, defaultValue: defaultGetter()) as String?;
+    if (!mounted) return;
     state = (saved != null && saved.trim().isNotEmpty) ? saved.trim() : defaultGetter();
   }
 
@@ -31,6 +32,7 @@ class AiStringSettingNotifier extends StateNotifier<String> {
     final trimmed = key.trim();
     final finalValue = trimmed.isNotEmpty ? trimmed : defaultGetter();
     await _box?.put(keyName, finalValue);
+    if (!mounted) return;
     state = finalValue;
   }
 
@@ -39,6 +41,7 @@ class AiStringSettingNotifier extends StateNotifier<String> {
         ? Hive.box(_settingsBox)
         : await Hive.openBox(_settingsBox);
     await _box?.delete(keyName);
+    if (!mounted) return;
     state = defaultGetter();
   }
 }

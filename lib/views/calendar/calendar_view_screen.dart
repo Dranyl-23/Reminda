@@ -1,6 +1,11 @@
+import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/time_utils.dart';
@@ -19,6 +24,8 @@ class CalendarViewScreen extends ConsumerStatefulWidget {
 }
 
 class _CalendarViewScreenState extends ConsumerState<CalendarViewScreen> {
+  final GlobalKey _timetableBoundaryKey = GlobalKey();
+  bool _isExportingImage = false;
   int _viewModeIndex = 0; // 0 = Weekly Timetable Grid, 1 = Monthly Calendar
   DateTime _activeWeekDate = DateTime.now();
   CalendarFormat _calendarFormat = CalendarFormat.month;
@@ -29,6 +36,55 @@ class _CalendarViewScreenState extends ConsumerState<CalendarViewScreen> {
   void initState() {
     super.initState();
     _selectedDay = _focusedDay;
+  }
+
+  Future<void> _exportTimetableAsImage() async {
+    if (_isExportingImage) return;
+    if (_viewModeIndex != 0) {
+      setState(() => _viewModeIndex = 0);
+      await Future.delayed(const Duration(milliseconds: 280));
+    }
+
+    setState(() => _isExportingImage = true);
+    try {
+      final boundary = _timetableBoundaryKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary == null) {
+        throw Exception('Timetable view is not ready to capture yet.');
+      }
+
+      final ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) {
+        throw Exception('Failed to encode timetable PNG.');
+      }
+
+      final pngBytes = byteData.buffer.asUint8List();
+      final tempDir = await getTemporaryDirectory();
+      final file = File(
+        '${tempDir.path}/reminda_timetable_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
+      await file.writeAsBytes(pngBytes);
+
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'image/png')],
+        text: '📅 My Weekly Timetable • Created with Reminda',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not export image: $e'),
+            backgroundColor: const Color(0xFFDC2626),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isExportingImage = false);
+      }
+    }
   }
 
   List<ScheduleEntry> _getEventsForDay(DateTime day, List<ScheduleEntry> allSchedules) {
@@ -42,12 +98,6 @@ class _CalendarViewScreenState extends ConsumerState<CalendarViewScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // BUG FIX (High #15): The calendar was watching the raw scheduleListProvider
-    // which returns ALL schedules across ALL profiles, mixing them together.
-    // schedulesForSelectedDateProvider already applies the active profile filter
-    // for the selected day. For the overall list passed to the timetable and
-    // monthly calendar event-marker logic, we filter to only active entries
-    // (which respects isActive set per-profile by the profile system).
     final allSchedules = ref.watch(scheduleListProvider)
         .where((e) => e.isActive)
         .toList();
@@ -59,6 +109,20 @@ class _CalendarViewScreenState extends ConsumerState<CalendarViewScreen> {
       appBar: AppBar(
         title: const Text('Timetable & Calendar'),
         elevation: 0,
+        actions: [
+          IconButton(
+            onPressed: _isExportingImage ? null : _exportTimetableAsImage,
+            tooltip: 'Export Timetable Image (Wallpaper)',
+            icon: _isExportingImage
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.wallpaper_rounded, size: 21),
+          ),
+          const SizedBox(width: 4),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),
           child: Padding(
@@ -192,14 +256,17 @@ class _CalendarViewScreenState extends ConsumerState<CalendarViewScreen> {
         ),
       ),
       body: _viewModeIndex == 0
-          ? WeeklyTimetableGrid(
-              schedules: allSchedules,
-              activeWeekDate: _activeWeekDate,
-              onWeekChanged: (newDate) {
-                setState(() {
-                  _activeWeekDate = newDate;
-                });
-              },
+          ? RepaintBoundary(
+              key: _timetableBoundaryKey,
+              child: WeeklyTimetableGrid(
+                schedules: allSchedules,
+                activeWeekDate: _activeWeekDate,
+                onWeekChanged: (newDate) {
+                  setState(() {
+                    _activeWeekDate = newDate;
+                  });
+                },
+              ),
             )
           : _buildMonthlyCalendarView(isDark, allSchedules, selectedDate, dayEvents),
     );

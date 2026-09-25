@@ -1,4 +1,4 @@
-﻿# Flutter Local Notifications & Gson ProGuard Rules
+# Flutter Local Notifications & Gson ProGuard Rules
 # Preserves generic signatures and TypeToken used for notification cancellation & scheduling in release builds
 
 -keepattributes *Annotation*
@@ -28,3 +28,8 @@
 -keep class io.flutter.util.** { *; }
 -keep class io.flutter.view.** { *; }
 -keep class io.flutter.** { *; }
+
+# Keep Android generated Resource IDs (R$raw, R$drawable, R$mipmap)
+-keepclassmembers class **.R$* {
+    public static <fields>;
+}

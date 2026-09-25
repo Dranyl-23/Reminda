@@ -17,13 +17,18 @@ class UserSyncService {
 
   /// Generate or retrieve stable device installation ID
   Future<String> getInstallationDeviceId() async {
-    final box = await Hive.openBox('app_settings_box');
-    var devId = box.get('installation_device_id') as String?;
-    if (devId == null || devId.isEmpty) {
-      devId = const Uuid().v4().substring(0, 12);
-      await box.put('installation_device_id', devId);
+    try {
+      final box = await Hive.openBox('app_settings_box');
+      var devId = box.get('installation_device_id') as String?;
+      if (devId == null || devId.isEmpty) {
+        devId = const Uuid().v4().substring(0, 12);
+        await box.put('installation_device_id', devId);
+      }
+      return devId;
+    } catch (e) {
+      debugPrint('UserSyncService: Failed to get device ID from Hive: $e');
+      return const Uuid().v4().substring(0, 12);
     }
-    return devId;
   }
 
   /// Sync User profile, device telemetry, and schedules to Cloud Firestore

@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../models/schedule_category.dart';
 import '../../models/schedule_entry.dart';
 import '../utils/time_utils.dart';
+import 'pdf_text_extractor.dart';
 
 class _SpatialLine {
   final String text;
@@ -35,10 +36,24 @@ class _ExtractedSlot {
 
 /// Generalized, Universal On-Device Schedule Parser with Zero-Crash Guarantee.
 /// Supports 1st, 2nd, 3rd, 4th Year IT, CS, MMA, Nursing, Engineering,
-/// Business, and General Workplace schedules.
+/// Business, and General Workplace schedules, plus direct digital PDF COR extraction.
 class OfflineScheduleParser {
-  /// Extracts schedules directly on-device using Google ML Kit Vision
-  static Future<List<ScheduleEntry>> parseFromBytes(Uint8List imageBytes) async {
+  /// Extracts schedules directly on-device using PDF text extraction (for PDFs) or Google ML Kit Vision (for images)
+  static Future<List<ScheduleEntry>> parseFromBytes(
+    Uint8List imageBytes, {
+    String mimeType = 'image/jpeg',
+  }) async {
+    if (mimeType.toLowerCase().contains('pdf') ||
+        PdfTextExtractor.isPdfBytes(imageBytes)) {
+      final pdfText = PdfTextExtractor.extractText(imageBytes);
+      if (pdfText.trim().isNotEmpty) {
+        return parseFromRawText(pdfText);
+      }
+      throw Exception(
+        'This PDF contains scanned images without embedded text. Please connect to the internet to parse scanned PDFs with Cloud AI or take a screenshot of the schedule page.',
+      );
+    }
+
     final tempDir = await getTemporaryDirectory();
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final tempFile = File('${tempDir.path}/temp_offline_scan_$timestamp.jpg');
@@ -60,6 +75,42 @@ class OfflineScheduleParser {
     }
   }
 
+  /// Parses raw multi-line text (e.g., extracted from a digital PDF COR or study load)
+  /// into strongly-typed ScheduleEntry objects using synthetic spatial layout coordinates.
+  static List<ScheduleEntry> parseFromRawText(String rawText) {
+    final List<_SpatialLine> allLines = [];
+    final rows = rawText.split(RegExp(r'\r?\n'));
+    double currentY = 10.0;
+
+    for (final row in rows) {
+      final trimmed = row.trim();
+      if (trimmed.isEmpty) continue;
+
+      // Split columns separated by 2+ spaces so tabular COR cells receive distinct X coordinates
+      final columns = trimmed.split(RegExp(r'\s{2,}'));
+      double currentX = 10.0;
+      for (final col in columns) {
+        final cell = col.trim();
+        if (cell.isEmpty) continue;
+        final double width = max(40.0, cell.length * 8.0);
+        allLines.add(
+          _SpatialLine(
+            cell,
+            Rect.fromLTWH(currentX, currentY, width, 18.0),
+          ),
+        );
+        currentX += width + 24.0;
+      }
+      currentY += 28.0;
+    }
+
+    if (allLines.isEmpty) {
+      return _generateDefaultSchedule(rawText);
+    }
+
+    return _parseSpatialLines(allLines, rawText);
+  }
+
   /// Parses text blocks and lines into strongly-typed ScheduleEntry list
   static List<ScheduleEntry> parseRecognizedText(RecognizedText recognizedText) {
     final List<_SpatialLine> allLines = [];
@@ -77,6 +128,13 @@ class OfflineScheduleParser {
       return _generateDefaultSchedule(recognizedText.text);
     }
 
+    return _parseSpatialLines(allLines, recognizedText.text);
+  }
+
+  static List<ScheduleEntry> _parseSpatialLines(
+    List<_SpatialLine> allLines,
+    String fallbackText,
+  ) {
     // Sort all lines top-to-bottom
     allLines.sort((a, b) => a.box.top.compareTo(b.box.top));
 
@@ -178,7 +236,7 @@ class OfflineScheduleParser {
 
     final result = uniqueMap.values.toList();
     if (result.isEmpty) {
-      return _generateDefaultSchedule(recognizedText.text);
+      return _generateDefaultSchedule(fallbackText);
     }
     return result;
   }

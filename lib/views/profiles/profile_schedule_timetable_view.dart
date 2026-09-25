@@ -11,6 +11,7 @@ import '../../core/utils/time_utils.dart';
 import '../../models/schedule_category.dart';
 import '../../models/schedule_entry.dart';
 import '../../models/schedule_profile.dart';
+import '../../providers/profile_provider.dart';
 import '../../providers/schedule_provider.dart';
 import '../home/schedule_detail_view.dart';
 import '../schedule/add_edit_schedule_view.dart';
@@ -123,12 +124,16 @@ class _ProfileScheduleTimetableViewState
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final allSchedules = ref.watch(scheduleListProvider);
+    final profiles = ref.watch(profileListProvider);
+    final validProfileIds = profiles.map((p) => p.id).toSet();
+    final isTargetActiveOrOnly = widget.profile.isActive || profiles.length <= 1;
 
-    // Filter schedules for this profile (always includes unassigned schedules)
+    // Filter schedules for this profile (includes unassigned and orphaned-profileId schedules on the active profile)
     final profileSchedules = allSchedules.where((s) {
       if (s.profileId == widget.profile.id) return true;
-      if (s.profileId == null || s.profileId!.trim().isEmpty) return true;
-      return false;
+      final pid = s.profileId?.trim() ?? '';
+      final isOrphanedOrUnassigned = pid.isEmpty || !validProfileIds.contains(pid);
+      return isTargetActiveOrOnly && isOrphanedOrUnassigned;
     }).toList();
 
     // Search Filter

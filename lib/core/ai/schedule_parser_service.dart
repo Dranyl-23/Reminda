@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart' as http;
@@ -7,10 +8,11 @@ import '../../models/schedule_entry.dart';
 import '../config/app_config.dart';
 import '../utils/time_utils.dart';
 import 'offline_schedule_parser.dart';
+import 'pdf_text_extractor.dart';
 
 class ScheduleParserService {
   static const String _defaultPrompt = '''
-You are an expert schedule extraction AI. Analyze the provided schedule image (which could be a university class timetable, certificate of matriculation / enrollment form, study load, work shift roster, hospital/security duty roster, or handwritten schedule).
+You are an expert schedule extraction AI. Analyze the provided schedule image or document text (which could be a university class timetable, certificate of registration / matriculation / enrollment form, study load, work shift roster, hospital/security duty roster, or handwritten schedule).
 
 Extract EVERY schedule event/shift without skipping any rows, subjects, lectures, or laboratory sessions. Output ONLY a valid JSON array matching this exact schema:
 [
@@ -48,7 +50,8 @@ Critical Extraction Rules:
 ''';
 
   /// Hybrid Multi-AI Cascade:
-  /// Preferred Offline -> Groq LPU -> Google Gemini -> OpenRouter Free Hub -> Cloudflare Workers AI -> Fallback On-Device Offline
+  /// Preferred Offline -> Next.js Server Proxy (/api/ai/parse) -> Groq LPU (Text for PDF CORs / Vision for Images)
+  /// -> Google Gemini (Multimodal PDF & Image) -> OpenRouter -> Cloudflare Workers AI -> Fallback On-Device Offline
   Future<List<ScheduleEntry>> parseImage({
     required Uint8List imageBytes,
     required String mimeType,
@@ -59,10 +62,25 @@ Critical Extraction Rules:
     String? cloudflareApiToken,
     String preferredEngine = 'auto', // 'auto', 'offline', 'groq', 'gemini', 'openrouter', 'cloudflare'
   }) async {
-    // 0. Explicit Offline Mode: On-Device ML Kit + Grammar Engine
+    final bool isPdf = mimeType.toLowerCase().contains('pdf') ||
+        PdfTextExtractor.isPdfBytes(imageBytes);
+    final String extractedPdfText =
+        isPdf ? PdfTextExtractor.extractText(imageBytes) : '';
+    final bool hasDigitalPdfText = isPdf && extractedPdfText.trim().length >= 25;
+
+    if (hasDigitalPdfText) {
+      debugPrint(
+        'ScheduleParserService: Direct PDF/COR text extracted (${extractedPdfText.length} chars). Zero-blur text mode enabled.',
+      );
+    }
+
+    // 0. Explicit Offline Mode: On-Device ML Kit / Direct PDF Text Engine
     if (preferredEngine == 'offline') {
       debugPrint('ScheduleParserService: [Tier 0] Parsing via On-Device Local Offline Engine...');
-      return await OfflineScheduleParser.parseFromBytes(imageBytes);
+      return await OfflineScheduleParser.parseFromBytes(
+        imageBytes,
+        mimeType: mimeType,
+      );
     }
 
     final effectiveGeminiKey = (geminiApiKey != null && geminiApiKey.trim().isNotEmpty)
@@ -88,22 +106,54 @@ Critical Extraction Rules:
     String? rawJson;
     String lastError = '';
 
-    // 1. Primary Cloud Engine: Groq LPU (Sub-second speed)
-    if ((preferredEngine == 'groq' || preferredEngine == 'auto') && effectiveGroqKey.isNotEmpty) {
+    // 0.5. Next.js Server Proxy Tier (/api/ai/parse) when configured & user is signed in
+    final proxyUrl = AppConfig.aiProxyUrl;
+    if (proxyUrl.isNotEmpty && preferredEngine == 'auto') {
       try {
-        debugPrint('ScheduleParserService: [Tier 1] Attempting Groq LPU (Llama 3.2 Vision)...');
-        rawJson = await _parseWithGroq(
+        debugPrint('ScheduleParserService: [Tier 0.5] Attempting Next.js Server AI Proxy ($proxyUrl)...');
+        rawJson = await _parseWithServerProxy(
+          proxyUrl: proxyUrl,
           imageBytes: imageBytes,
           mimeType: mimeType,
-          apiKey: effectiveGroqKey,
+          extractedText: hasDigitalPdfText ? extractedPdfText : null,
         );
       } catch (e) {
-        lastError = 'Groq error: $e';
-        debugPrint('ScheduleParserService: Tier 1 (Groq) failed: $e. Cascading to Tier 2 (Gemini)...');
+        lastError = 'Proxy error: $e';
+        debugPrint('ScheduleParserService: Server Proxy unavailable ($e). Cascading to client AI engines...');
       }
     }
 
-    // 2. Secondary Cloud Engine: Google Gemini Flash
+    // 1. Primary Cloud Engine: Groq LPU (Text LLM for digital PDFs, Vision LLM for images)
+    if (rawJson == null &&
+        (preferredEngine == 'groq' || preferredEngine == 'auto') &&
+        effectiveGroqKey.isNotEmpty) {
+      if (hasDigitalPdfText) {
+        try {
+          debugPrint('ScheduleParserService: [Tier 1 - PDF Text] Parsing COR text via Groq LPU (Llama 3.3 70B)...');
+          rawJson = await _parseTextWithGroq(
+            extractedText: extractedPdfText,
+            apiKey: effectiveGroqKey,
+          );
+        } catch (e) {
+          lastError = 'Groq PDF text error: $e';
+          debugPrint('ScheduleParserService: Tier 1 (Groq PDF Text) failed: $e');
+        }
+      } else if (!isPdf) {
+        try {
+          debugPrint('ScheduleParserService: [Tier 1 - Vision] Attempting Groq LPU (Llama 3.2 Vision)...');
+          rawJson = await _parseWithGroq(
+            imageBytes: imageBytes,
+            mimeType: mimeType,
+            apiKey: effectiveGroqKey,
+          );
+        } catch (e) {
+          lastError = 'Groq error: $e';
+          debugPrint('ScheduleParserService: Tier 1 (Groq) failed: $e. Cascading to Tier 2 (Gemini)...');
+        }
+      }
+    }
+
+    // 2. Secondary Cloud Engine: Google Gemini Flash (Supports both Digital PDF Text & Native Scanned PDF DataPart)
     if (rawJson == null && effectiveGeminiKey.isNotEmpty) {
       try {
         debugPrint('ScheduleParserService: [Tier 2] Attempting Google Gemini Multimodal AI...');
@@ -111,6 +161,7 @@ Critical Extraction Rules:
           imageBytes: imageBytes,
           mimeType: mimeType,
           apiKey: effectiveGeminiKey,
+          extractedPdfText: hasDigitalPdfText ? extractedPdfText : null,
         );
       } catch (e) {
         lastError = 'Gemini error: $e';
@@ -118,23 +169,38 @@ Critical Extraction Rules:
       }
     }
 
-    // 3. Tertiary Cloud Engine: OpenRouter Free Hub (Multi-Model Hub)
+    // 3. Tertiary Cloud Engine: OpenRouter Free Hub
     if (rawJson == null && effectiveOpenRouterKey.isNotEmpty) {
-      try {
-        debugPrint('ScheduleParserService: [Tier 3] Attempting OpenRouter Free Vision Hub...');
-        rawJson = await _parseWithOpenRouter(
-          imageBytes: imageBytes,
-          mimeType: mimeType,
-          apiKey: effectiveOpenRouterKey,
-        );
-      } catch (e) {
-        lastError = 'OpenRouter error: $e';
-        debugPrint('ScheduleParserService: Tier 3 (OpenRouter) failed: $e. Cascading to Tier 4 (Cloudflare)...');
+      if (hasDigitalPdfText) {
+        try {
+          debugPrint('ScheduleParserService: [Tier 3 - PDF Text] Attempting OpenRouter Text LLM...');
+          rawJson = await _parseTextWithOpenRouter(
+            extractedText: extractedPdfText,
+            apiKey: effectiveOpenRouterKey,
+          );
+        } catch (e) {
+          lastError = 'OpenRouter PDF text error: $e';
+        }
+      } else if (!isPdf) {
+        try {
+          debugPrint('ScheduleParserService: [Tier 3] Attempting OpenRouter Free Vision Hub...');
+          rawJson = await _parseWithOpenRouter(
+            imageBytes: imageBytes,
+            mimeType: mimeType,
+            apiKey: effectiveOpenRouterKey,
+          );
+        } catch (e) {
+          lastError = 'OpenRouter error: $e';
+          debugPrint('ScheduleParserService: Tier 3 (OpenRouter) failed: $e. Cascading to Tier 4 (Cloudflare)...');
+        }
       }
     }
 
-    // 4. Quaternary Cloud Engine: Cloudflare Workers AI Edge
-    if (rawJson == null && effectiveCfAccountId.isNotEmpty && effectiveCfToken.isNotEmpty) {
+    // 4. Quaternary Cloud Engine: Cloudflare Workers AI Edge (Images only)
+    if (rawJson == null &&
+        !isPdf &&
+        effectiveCfAccountId.isNotEmpty &&
+        effectiveCfToken.isNotEmpty) {
       try {
         debugPrint('ScheduleParserService: [Tier 4] Attempting Cloudflare Workers AI Edge...');
         rawJson = await _parseWithCloudflare(
@@ -152,7 +218,10 @@ Critical Extraction Rules:
     if (rawJson == null || rawJson.trim().isEmpty) {
       debugPrint('ScheduleParserService: Cloud tiers unavailable ($lastError). Cascading to Tier 0 (On-Device Offline Engine)...');
       try {
-        final offlineEntries = await OfflineScheduleParser.parseFromBytes(imageBytes);
+        final offlineEntries = await OfflineScheduleParser.parseFromBytes(
+          imageBytes,
+          mimeType: mimeType,
+        );
         if (offlineEntries.isNotEmpty) {
           debugPrint('ScheduleParserService: Successfully extracted ${offlineEntries.length} schedules via On-Device Offline Engine!');
           return offlineEntries;
@@ -160,7 +229,7 @@ Critical Extraction Rules:
       } catch (offlineErr) {
         throw Exception('Offline on-device scanning and Cloud AI both failed. Cloud: $lastError | Offline: $offlineErr');
       }
-      throw Exception('Multi-AI extraction could not process this image. Details: $lastError');
+      throw Exception('Multi-AI extraction could not process this document. Details: $lastError');
     }
 
     try {
@@ -168,7 +237,10 @@ Critical Extraction Rules:
     } catch (decodeErr) {
       debugPrint('ScheduleParserService: JSON decode failed: $decodeErr. Falling back to On-Device Offline Engine...');
       try {
-        final offlineEntries = await OfflineScheduleParser.parseFromBytes(imageBytes);
+        final offlineEntries = await OfflineScheduleParser.parseFromBytes(
+          imageBytes,
+          mimeType: mimeType,
+        );
         if (offlineEntries.isNotEmpty) {
           debugPrint('ScheduleParserService: Successfully extracted ${offlineEntries.length} schedules via On-Device Offline Engine after decode error!');
           return offlineEntries;
@@ -344,11 +416,177 @@ Critical Extraction Rules:
     throw Exception('Cloudflare Workers AI returned no valid schedule output.');
   }
 
+  /// Extracts schedule via the Next.js Admin Portal Server Proxy (/api/ai/parse)
+  /// authenticated with the user's Firebase ID token.
+  Future<String> _parseWithServerProxy({
+    required String proxyUrl,
+    required Uint8List imageBytes,
+    required String mimeType,
+    String? extractedText,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('User not signed in for Server AI Proxy.');
+    }
+    final idToken = await user.getIdToken();
+    if (idToken == null || idToken.isEmpty) {
+      throw Exception('Failed to obtain Firebase ID token.');
+    }
+
+    final Map<String, dynamic> payload = {
+      'mimeType': mimeType,
+      if (extractedText != null && extractedText.trim().isNotEmpty)
+        'extractedText': extractedText
+      else
+        'base64Data': base64Encode(imageBytes),
+    };
+
+    final response = await http
+        .post(
+          Uri.parse(proxyUrl),
+          headers: {
+            'Authorization': 'Bearer $idToken',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(payload),
+        )
+        .timeout(const Duration(seconds: 35));
+
+    if (response.statusCode == 200) {
+      final body = jsonDecode(response.body);
+      if (body is Map && body['schedules'] != null) {
+        return jsonEncode(body['schedules']);
+      }
+      if (body is Map && body['rawJson'] is String) {
+        return body['rawJson'] as String;
+      }
+    }
+
+    throw Exception('Server Proxy returned HTTP ${response.statusCode}');
+  }
+
+  /// Parses extracted digital PDF/COR text using Groq LPU Text Models (Llama 3.3 70B / 3.1 8B)
+  Future<String> _parseTextWithGroq({
+    required String extractedText,
+    required String apiKey,
+  }) async {
+    final models = [
+      'llama-3.3-70b-versatile',
+      'llama-3.1-8b-instant',
+    ];
+
+    for (final model in models) {
+      try {
+        final response = await http
+            .post(
+              Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
+              headers: {
+                'Authorization': 'Bearer $apiKey',
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode({
+                'model': model,
+                'messages': [
+                  {
+                    'role': 'system',
+                    'content': _defaultPrompt,
+                  },
+                  {
+                    'role': 'user',
+                    'content':
+                        'Extract all schedule entries from this digital Certificate of Registration / Study Load PDF text:\n\n$extractedText',
+                  },
+                ],
+                'temperature': 0.1,
+                'max_tokens': 4096,
+              }),
+            )
+            .timeout(const Duration(seconds: 25));
+
+        if (response.statusCode == 200) {
+          final body = jsonDecode(response.body);
+          final choices = body['choices'] as List?;
+          if (choices != null && choices.isNotEmpty) {
+            final content = choices[0]['message']?['content']?.toString();
+            if (content != null && content.trim().isNotEmpty) {
+              debugPrint('ScheduleParserService: Extracted PDF text via Groq ($model)');
+              return content;
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('ScheduleParserService: Groq text $model error: $e');
+      }
+    }
+
+    throw Exception('Groq Text models returned no valid schedule output.');
+  }
+
+  /// Parses extracted digital PDF/COR text using OpenRouter Free Text LLMs
+  Future<String> _parseTextWithOpenRouter({
+    required String extractedText,
+    required String apiKey,
+  }) async {
+    final models = [
+      'meta-llama/llama-3.3-70b-instruct:free',
+      'google/gemini-2.0-flash-exp:free',
+      'qwen/qwen-2.5-72b-instruct:free',
+    ];
+
+    for (final model in models) {
+      try {
+        final response = await http
+            .post(
+              Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
+              headers: {
+                'Authorization': 'Bearer $apiKey',
+                'HTTP-Referer': 'https://github.com/Dranyl-23/Schedly',
+                'X-Title': 'Reminda AI Schedule Scanner',
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode({
+                'model': model,
+                'messages': [
+                  {
+                    'role': 'system',
+                    'content': _defaultPrompt,
+                  },
+                  {
+                    'role': 'user',
+                    'content':
+                        'Extract all schedule entries from this digital Certificate of Registration / Study Load PDF text:\n\n$extractedText',
+                  },
+                ],
+                'temperature': 0.1,
+                'max_tokens': 4096,
+              }),
+            )
+            .timeout(const Duration(seconds: 30));
+
+        if (response.statusCode == 200) {
+          final body = jsonDecode(response.body);
+          final choices = body['choices'] as List?;
+          if (choices != null && choices.isNotEmpty) {
+            final content = choices[0]['message']?['content']?.toString();
+            if (content != null && content.trim().isNotEmpty) {
+              return content;
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('ScheduleParserService: OpenRouter text $model error: $e');
+      }
+    }
+
+    throw Exception('OpenRouter Text models returned no valid schedule output.');
+  }
+
   /// Extracts schedule using Google Gemini Generative AI
   Future<String> _parseWithGemini({
     required Uint8List imageBytes,
     required String mimeType,
     required String apiKey,
+    String? extractedPdfText,
   }) async {
     final String normalizedMime;
     if (mimeType.contains('pdf') || mimeType.endsWith('.pdf')) {
@@ -382,12 +620,18 @@ Critical Extraction Rules:
           ),
         );
 
-        final content = [
-          Content.multi([
-            TextPart(_defaultPrompt),
-            DataPart(normalizedMime, imageBytes),
-          ])
-        ];
+        final content = (extractedPdfText != null && extractedPdfText.trim().isNotEmpty)
+            ? [
+                Content.text(
+                  '$_defaultPrompt\n\nDIGITAL PDF / COR TEXT:\n$extractedPdfText',
+                ),
+              ]
+            : [
+                Content.multi([
+                  TextPart(_defaultPrompt),
+                  DataPart(normalizedMime, imageBytes),
+                ])
+              ];
 
         final response = await model
             .generateContent(content)
@@ -426,8 +670,8 @@ Critical Extraction Rules:
       }
 
       // Remove trailing commas before closing brackets which cause jsonDecode failure
-      cleanedJson = cleanedJson.replaceAll(RegExp(r',\s*\]'), ']');
-      cleanedJson = cleanedJson.replaceAll(RegExp(r',\s*\}'), '}');
+      // Safely remove trailing commas before ] and } only outside of quoted strings
+      cleanedJson = _removeTrailingCommas(cleanedJson);
 
       final dynamic decoded = jsonDecode(cleanedJson);
       if (decoded is! List) {
@@ -528,5 +772,51 @@ Critical Extraction Rules:
     } catch (_) {
       return fallback;
     }
+  }
+
+  /// Remove trailing commas before ] and } while preserving string contents.
+  /// This avoids corrupting valid JSON strings that happen to contain ", ]" or ", }".
+  static String _removeTrailingCommas(String json) {
+    final buffer = StringBuffer();
+    bool inString = false;
+    bool escaped = false;
+
+    for (int i = 0; i < json.length; i++) {
+      final char = json[i];
+
+      if (escaped) {
+        buffer.write(char);
+        escaped = false;
+        continue;
+      }
+
+      if (char == '\\' && inString) {
+        buffer.write(char);
+        escaped = true;
+        continue;
+      }
+
+      if (char == '"') {
+        inString = !inString;
+        buffer.write(char);
+        continue;
+      }
+
+      if (!inString && char == ',') {
+        // Look ahead past whitespace for ] or }
+        int j = i + 1;
+        while (j < json.length && (json[j] == ' ' || json[j] == '\n' || json[j] == '\r' || json[j] == '\t')) {
+          j++;
+        }
+        if (j < json.length && (json[j] == ']' || json[j] == '}')) {
+          // Skip the trailing comma
+          continue;
+        }
+      }
+
+      buffer.write(char);
+    }
+
+    return buffer.toString();
   }
 }

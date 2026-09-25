@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/database/firestore_instance.dart';
@@ -31,6 +32,184 @@ class _UserProfileDetailViewState extends ConsumerState<UserProfileDetailView> {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
     return name.substring(0, name.length >= 2 ? 2 : 1).toUpperCase();
+  }
+
+  Widget _buildAvatarImage(String? photoUrl, String userName) {
+    if (photoUrl == null || photoUrl.trim().isEmpty) {
+      return _buildInitialsAvatar(userName);
+    }
+    if (photoUrl.startsWith('data:image/')) {
+      try {
+        final commaIdx = photoUrl.indexOf(',');
+        final rawBase64 = commaIdx != -1 ? photoUrl.substring(commaIdx + 1) : photoUrl;
+        return Image.memory(
+          base64Decode(rawBase64),
+          fit: BoxFit.cover,
+          width: 96,
+          height: 96,
+          errorBuilder: (context, error, stackTrace) => _buildInitialsAvatar(userName),
+        );
+      } catch (_) {
+        return _buildInitialsAvatar(userName);
+      }
+    }
+    return Image.network(
+      photoUrl,
+      fit: BoxFit.cover,
+      width: 96,
+      height: 96,
+      errorBuilder: (context, error, stackTrace) => _buildInitialsAvatar(userName),
+    );
+  }
+
+  Future<void> _changeProfilePhoto() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final auth = ref.read(authProvider);
+    final hasPhoto = auth.userPhotoUrl != null && auth.userPhotoUrl!.trim().isNotEmpty;
+
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white24 : Colors.black12,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Update Profile Photo',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.photo_library_rounded, color: Color(0xFF2563EB), size: 20),
+                ),
+                title: Text(
+                  'Choose from Gallery',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                ),
+                onTap: () => Navigator.pop(ctx, 'gallery'),
+              ),
+              ListTile(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.camera_alt_rounded, color: Color(0xFF10B981), size: 20),
+                ),
+                title: Text(
+                  'Take a Photo',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                ),
+                onTap: () => Navigator.pop(ctx, 'camera'),
+              ),
+              if (hasPhoto)
+                ListTile(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 20),
+                  ),
+                  title: const Text(
+                    'Remove Custom Photo',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFEF4444),
+                    ),
+                  ),
+                  onTap: () => Navigator.pop(ctx, 'remove'),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (action == null || !mounted) return;
+
+    if (action == 'remove') {
+      await ref.read(authProvider.notifier).updateProfilePhoto(null);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profile photo reset.'),
+          backgroundColor: Color(0xFF2563EB),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final picker = ImagePicker();
+    final source = action == 'camera' ? ImageSource.camera : ImageSource.gallery;
+    try {
+      final XFile? picked = await picker.pickImage(
+        source: source,
+        maxWidth: 400,
+        maxHeight: 400,
+        imageQuality: 75,
+      );
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      final dataUri = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+      await ref.read(authProvider.notifier).updateProfilePhoto(dataUri);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profile photo updated!'),
+          backgroundColor: Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not select photo: $e'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   String _formatDays(List<int> days) {
@@ -613,48 +792,46 @@ class _UserProfileDetailViewState extends ConsumerState<UserProfileDetailView> {
                 children: [
                   const SizedBox(height: 8),
 
-                  // Big Center Avatar
+                  // Big Center Avatar (Tappable to change photo)
                   Center(
-                    child: Stack(
-                      children: [
-                        Container(
-                          width: 96,
-                          height: 96,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: const Color(0xFF2563EB),
-                              width: 2.5,
-                            ),
-                          ),
-                          child: ClipOval(
-                            child: auth.userPhotoUrl != null && auth.userPhotoUrl!.isNotEmpty
-                                ? Image.network(
-                                    auth.userPhotoUrl!,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => _buildInitialsAvatar(auth.userName),
-                                  )
-                                : _buildInitialsAvatar(auth.userName),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 2,
-                          right: 2,
-                          child: Container(
-                            padding: const EdgeInsets.all(5),
+                    child: GestureDetector(
+                      onTap: _changeProfilePhoto,
+                      behavior: HitTestBehavior.opaque,
+                      child: Stack(
+                        children: [
+                          Container(
+                            width: 96,
+                            height: 96,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF2563EB),
                               shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
+                              border: Border.all(
+                                color: const Color(0xFF2563EB),
+                                width: 2.5,
+                              ),
                             ),
-                            child: const Icon(
-                              Icons.camera_alt_rounded,
-                              size: 13,
-                              color: Colors.white,
+                            child: ClipOval(
+                              child: _buildAvatarImage(auth.userPhotoUrl, auth.userName),
                             ),
                           ),
-                        ),
-                      ],
+                          Positioned(
+                            bottom: 2,
+                            right: 2,
+                            child: Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2563EB),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 2),
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt_rounded,
+                                size: 13,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
 

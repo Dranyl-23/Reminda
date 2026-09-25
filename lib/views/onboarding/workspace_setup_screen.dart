@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/database/institution_sync_service.dart';
 import '../../core/utils/page_transitions.dart';
 import '../../models/alarm_tone.dart';
 import '../../models/institution_directory.dart';
@@ -456,6 +457,8 @@ class _WorkspaceSetupScreenState extends ConsumerState<WorkspaceSetupScreen> {
 
   // ================= STEP 2: INSTITUTION & DIRECTORY =================
   Widget _buildStep2Institution(bool isDark, UserSetupState setup) {
+    // Subscribe reactively to cloud institution updates so new schools appear live
+    ref.watch(cloudInstitutionsRevisionProvider);
     final regions = PhRegion.forCountry(setup.countryCode);
     final cities  = setup.regionCode.isNotEmpty ? PhCity.forRegion(setup.regionCode) : <PhCity>[];
     final filtered = setup.regionCode.isNotEmpty

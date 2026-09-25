@@ -83,6 +83,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final isGuestMode = _box.get('isGuestLogin', defaultValue: false) as bool;
     final cachedName = _box.get('userName', defaultValue: isGuestMode ? 'Guest User' : 'User') as String;
     final cachedEmail = _box.get('userEmail', defaultValue: '') as String;
+    final customPhoto = _box.get('userCustomPhotoUrl') as String?;
     final cachedPhoto = _box.get('userPhotoUrl') as String?;
 
     final currentUser = _firebaseAuth.currentUser;
@@ -98,7 +99,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       userId: currentUser?.uid,
       userName: currentUser?.displayName ?? (cachedName.isNotEmpty ? cachedName : 'User'),
       userEmail: currentUser?.email ?? cachedEmail,
-      userPhotoUrl: currentUser?.photoURL ?? cachedPhoto,
+      userPhotoUrl: (customPhoto != null && customPhoto.isNotEmpty)
+          ? customPhoto
+          : (currentUser?.photoURL ?? cachedPhoto),
     );
 
     // Listen to Firebase Auth state changes in realtime
@@ -106,14 +109,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (user != null) {
         final name = user.displayName ?? (user.email?.split('@').first ?? 'User');
         final email = user.email ?? 'user@example.com';
-        final photo = user.photoURL;
+        final savedCustomPhoto = _box.get('userCustomPhotoUrl') as String?;
+        final effectivePhoto =
+            (savedCustomPhoto != null && savedCustomPhoto.isNotEmpty)
+                ? savedCustomPhoto
+                : user.photoURL;
 
         await _box.put('isGuestLogin', false);
         await _box.put('isLoggedIn', true);
         await _box.put('isOnboarded', true);
         await _box.put('userName', name);
         await _box.put('userEmail', email);
-        if (photo != null) await _box.put('userPhotoUrl', photo);
+        if (effectivePhoto != null) await _box.put('userPhotoUrl', effectivePhoto);
 
         state = state.copyWith(
           isLoggedIn: true,
@@ -122,7 +129,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           userId: user.uid,
           userName: name,
           userEmail: email,
-          userPhotoUrl: photo,
+          userPhotoUrl: effectivePhoto,
           isLoading: false,
           clearError: true,
         );
@@ -350,6 +357,42 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (_) {}
     await _box.put('userName', name);
     state = state.copyWith(userName: name);
+    UserSyncService.instance.syncCurrentUser();
+  }
+
+  /// Update user profile photo (supports Data URI base64 or HTTPS URL) across Hive and Firestore
+  Future<void> updateProfilePhoto(String? photoDataOrUrl) async {
+    if (photoDataOrUrl == null || photoDataOrUrl.trim().isEmpty) {
+      await _box.delete('userCustomPhotoUrl');
+      final fallbackPhoto = _firebaseAuth.currentUser?.photoURL;
+      if (fallbackPhoto != null) {
+        await _box.put('userPhotoUrl', fallbackPhoto);
+      } else {
+        await _box.delete('userPhotoUrl');
+      }
+      state = AuthState(
+        isOnboarded: state.isOnboarded,
+        isLoggedIn: state.isLoggedIn,
+        isGuest: state.isGuest,
+        isLoading: state.isLoading,
+        errorMessage: state.errorMessage,
+        userId: state.userId,
+        userName: state.userName,
+        userEmail: state.userEmail,
+        userPhotoUrl: fallbackPhoto,
+      );
+    } else {
+      final cleanPhoto = photoDataOrUrl.trim();
+      await _box.put('userCustomPhotoUrl', cleanPhoto);
+      await _box.put('userPhotoUrl', cleanPhoto);
+      if (cleanPhoto.startsWith('http')) {
+        try {
+          await _firebaseAuth.currentUser?.updatePhotoURL(cleanPhoto);
+        } catch (_) {}
+      }
+      state = state.copyWith(userPhotoUrl: cleanPhoto);
+    }
+    UserSyncService.instance.syncCurrentUser();
   }
 
   /// Logout from Firebase and local state
@@ -366,6 +409,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _box.delete('userName');
     await _box.delete('userEmail');
     await _box.delete('userPhotoUrl');
+    await _box.delete('userCustomPhotoUrl');
 
     // Wipe local schedule and profile caches so old account data doesn't leak
     try {
@@ -381,8 +425,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await notifService.cancelAllNotifications();
 
       // Clear in-memory Riverpod provider state so old user's data isn't visible in UI
-      _ref.read(scheduleListProvider.notifier).clearLocalMemory();
-      _ref.read(profileListProvider.notifier).clearLocalMemory();
+      _ref.invalidate(scheduleListProvider);
+      _ref.invalidate(profileListProvider);
     } catch (e) {
       // Ignored
     }

@@ -48,15 +48,16 @@ class ScheduleCard extends StatelessWidget {
     final now = DateTime.now();
     final currentWeekday = now.weekday;
     final currentMinutes = now.hour * 60 + now.minute;
-    // BUG FIX (High #13): Mirror the overnight fix from filter_providers.dart.
-    // The old check `currentMinutes >= startMin` fails after midnight for
-    // overnight shifts. Also add yesterday check for shifts that started
-    // the previous day and are still ongoing (e.g. 22:00 Sat → 02:00 Sun).
+    final yesterdayDate = now.subtract(const Duration(days: 1));
     final yesterdayWeekday = currentWeekday == 1 ? 7 : currentWeekday - 1;
+    final bool isMutedNext = entry.isNextOccurrenceMuted;
     bool isOngoing = false;
 
     // Check: did this shift start YESTERDAY and is still ongoing now?
-    if (!isOngoing && entry.spansNextDay && entry.daysOfWeek.contains(yesterdayWeekday)) {
+    if (!isOngoing &&
+        entry.spansNextDay &&
+        entry.daysOfWeek.contains(yesterdayWeekday) &&
+        !entry.isMutedOnDate(yesterdayDate)) {
       final endParts = entry.endTime.split(':');
       if (endParts.length == 2) {
         final endMin = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
@@ -67,7 +68,9 @@ class ScheduleCard extends StatelessWidget {
     }
 
     // Check: does this shift start today and is currently ongoing?
-    if (!isOngoing && entry.daysOfWeek.contains(currentWeekday)) {
+    if (!isOngoing &&
+        entry.daysOfWeek.contains(currentWeekday) &&
+        !entry.isMutedOnDate(now)) {
       final startParts = entry.startTime.split(':');
       final endParts = entry.endTime.split(':');
       if (startParts.length == 2 && endParts.length == 2) {
@@ -75,11 +78,7 @@ class ScheduleCard extends StatelessWidget {
         int endMin = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
         if (endMin < startMin) endMin += 24 * 60; // Overnight
 
-        // Post-midnight wrap: currentMinutes may be < startMin but still within
-        // the overnight window (e.g. 2:00 AM for a 10 PM–4 AM shift)
-        isOngoing = endMin > 1440
-            ? (currentMinutes >= startMin || currentMinutes < (endMin - 1440))
-            : (currentMinutes >= startMin && currentMinutes < endMin);
+        isOngoing = (currentMinutes >= startMin && currentMinutes < endMin);
       }
     }
 
@@ -163,7 +162,37 @@ class ScheduleCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          if (isOngoing) ...[
+                          if (isMutedNext) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2.5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.event_busy_rounded, size: 10, color: Color(0xFFD97706)),
+                                  SizedBox(width: 3),
+                                  Text(
+                                    'Skipped Next',
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFFD97706),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ] else if (isOngoing) ...[
                             const SizedBox(width: 6),
                             Container(
                               padding: const EdgeInsets.symmetric(

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/constants/app_colors.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/schedule_provider.dart';
 import 'ocr_processing_view.dart';
 
@@ -19,25 +18,10 @@ class ScannerLandingView extends ConsumerStatefulWidget {
 class _ScannerLandingViewState extends ConsumerState<ScannerLandingView> {
   final ImagePicker _picker = ImagePicker();
 
-  /// Returns true if user is in Guest Mode (uses offline engine) or has a configured Cloud AI key.
+  /// Always returns true because ScheduleParserService cascades from
+  /// Server Proxy (/api/ai/parse) -> Cloud AI Keys -> Direct PDF Text Extractor -> On-Device Offline AI.
   bool _checkApiKey() {
-    final authState = ref.read(authProvider);
-    final isGuest = authState.isGuest || !authState.isLoggedIn;
-    if (isGuest) return true; // Guest mode uses On-Device Local Offline AI directly
-
-    final hasAi = ref.read(hasAnyAiConfiguredProvider);
-    if (hasAi) return true;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'No AI engine configured.\nGo to Settings → AI Engines & API Keys to configure.',
-        ),
-        backgroundColor: Color(0xFFDC2626),
-        behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: 4),
-      ),
-    );
-    return false;
+    return true;
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -296,20 +280,25 @@ class _ScannerLandingViewState extends ConsumerState<ScannerLandingView> {
 
               const SizedBox(height: 12),
 
-              // Primary Action 3: Upload PDF / Document
+              // Primary Action 3: Direct PDF / COR Import (Zero-Blur Parsing)
               SizedBox(
                 width: double.infinity,
-                height: 48,
-                child: TextButton.icon(
+                height: 50,
+                child: OutlinedButton.icon(
                   onPressed: _pickDocument,
-                  icon: const Icon(Icons.picture_as_pdf_rounded, size: 18, color: Color(0xFF64748B)),
+                  icon: const Icon(Icons.picture_as_pdf_rounded, size: 20, color: Color(0xFFDC2626)),
                   label: const Text(
-                    'Or Upload PDF / Document',
+                    'Import PDF / COR (Zero-Blur)',
                     style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF64748B),
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFFDC2626),
                     ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: isDark ? AppColors.surfaceDark : const Color(0xFFFEF2F2),
+                    side: const BorderSide(color: Color(0xFFFCA5A5), width: 1.4),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                 ),
               ),
@@ -345,9 +334,9 @@ class _ScannerLandingViewState extends ConsumerState<ScannerLandingView> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    _buildTipBullet('Make sure the image is clear', isDark),
+                    _buildTipBullet('Import your school PDF / COR directly for 100% zero-blur accuracy', isDark),
                     const SizedBox(height: 4),
-                    _buildTipBullet('Good lighting', isDark),
+                    _buildTipBullet('Make sure the image is clear and well-lit', isDark),
                     const SizedBox(height: 4),
                     _buildTipBullet('Avoid blurry or tilted photos', isDark),
                   ],

@@ -17,6 +17,7 @@ class FirestoreSyncService {
 
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _schedulesSubscription;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _profilesSubscription;
+  StreamSubscription<User?>? _authStateSubscription;
 
   FirestoreSyncService(this._scheduleRepo, this._profileRepo);
 
@@ -38,7 +39,8 @@ class FirestoreSyncService {
   void startSync({
     VoidCallback? onDataChanged,
   }) {
-    _auth.authStateChanges().listen((user) async {
+    _authStateSubscription?.cancel();
+    _authStateSubscription = _auth.authStateChanges().listen((user) async {
       if (user != null) {
         debugPrint('FirestoreSyncService: User logged in (${user.uid}). Pulling cloud schedules & profiles...');
         await pullAndSyncAll(onDataChanged: onDataChanged);
@@ -89,30 +91,56 @@ class FirestoreSyncService {
 
       bool hasChanges = false;
 
-      // 1. Sync Schedules (Cloud is authoritative for this authenticated user)
+      // 1. Sync Schedules with Per-Item Timestamp Conflict Resolution (updatedAt)
       final schedRef = _userSchedulesRef;
       if (schedRef != null) {
         final snapshot = await schedRef.get().timeout(const Duration(seconds: 10));
 
-        final cloudEntries = <ScheduleEntry>[];
+        final cloudMap = <String, ScheduleEntry>{};
         for (final doc in snapshot.docs) {
           try {
             final entry = ScheduleEntry.fromJson(doc.data());
-            cloudEntries.add(entry);
+            cloudMap[entry.id] = entry;
           } catch (e) {
             debugPrint('Failed to parse cloud schedule doc ${doc.id}: $e');
           }
         }
 
-        // ✅ FIXED: Only clear local data when the cloud actually has schedules.
-        // If cloudEntries is empty (new account, network issue, etc.) we keep
-        // whatever the user already has locally — no data loss.
-        if (cloudEntries.isNotEmpty) {
-          await _scheduleRepo.clearAll();
-          await _scheduleRepo.saveBatch(cloudEntries);
+        final localEntries = _scheduleRepo.getAllSchedules();
+        final localMap = <String, ScheduleEntry>{
+          for (final entry in localEntries) entry.id: entry,
+        };
+
+        final mergedEntries = <ScheduleEntry>[];
+        final toUploadToCloud = <ScheduleEntry>[];
+
+        final allIds = <String>{...localMap.keys, ...cloudMap.keys};
+        for (final id in allIds) {
+          final local = localMap[id];
+          final cloud = cloudMap[id];
+
+          if (local != null && cloud != null) {
+            if (local.updatedAt > cloud.updatedAt) {
+              mergedEntries.add(local);
+              toUploadToCloud.add(local);
+            } else {
+              mergedEntries.add(cloud);
+            }
+          } else if (local != null) {
+            // Created offline or pre-login: preserve locally and upload to cloud
+            mergedEntries.add(local);
+            toUploadToCloud.add(local);
+          } else if (cloud != null) {
+            mergedEntries.add(cloud);
+          }
+        }
+
+        if (mergedEntries.isNotEmpty) {
+          await _scheduleRepo.saveBatch(mergedEntries);
           hasChanges = true;
-        } else {
-          debugPrint('FirestoreSyncService: Cloud returned 0 schedules — keeping local data intact.');
+        }
+        if (toUploadToCloud.isNotEmpty) {
+          await syncBatchSchedulesToCloud(toUploadToCloud);
         }
       }
 
@@ -151,6 +179,28 @@ class FirestoreSyncService {
         }
       }
 
+      // 3. Reconcile any orphaned or unassigned schedule profileIds to the active profile
+      final currentProfiles = _profileRepo.getAllProfiles();
+      if (currentProfiles.isNotEmpty) {
+        final validProfileIds = currentProfiles.map((p) => p.id).toSet();
+        final activeProfile = _profileRepo.getActiveProfile() ?? currentProfiles.first;
+        final currentSchedules = _scheduleRepo.getAllSchedules();
+        final healedSchedules = <ScheduleEntry>[];
+
+        for (final entry in currentSchedules) {
+          final pid = entry.profileId?.trim() ?? '';
+          if (pid.isEmpty || !validProfileIds.contains(pid)) {
+            healedSchedules.add(entry.copyWith(profileId: activeProfile.id));
+          }
+        }
+
+        if (healedSchedules.isNotEmpty) {
+          await _scheduleRepo.saveBatch(healedSchedules);
+          await syncBatchSchedulesToCloud(healedSchedules);
+          hasChanges = true;
+        }
+      }
+
       if (hasChanges && onDataChanged != null) {
         onDataChanged();
       }
@@ -176,9 +226,12 @@ class FirestoreSyncService {
           if (change.type == DocumentChangeType.added ||
               change.type == DocumentChangeType.modified) {
             try {
-              final entry = ScheduleEntry.fromJson(data);
-              await _scheduleRepo.saveSchedule(entry);
-              changed = true;
+              final incoming = ScheduleEntry.fromJson(data);
+              final existing = _scheduleRepo.getScheduleById(incoming.id);
+              if (existing == null || incoming.updatedAt >= existing.updatedAt) {
+                await _scheduleRepo.saveSchedule(incoming);
+                changed = true;
+              }
             } catch (_) {}
           } else if (change.type == DocumentChangeType.removed) {
             await _scheduleRepo.deleteSchedule(change.doc.id);
@@ -296,6 +349,8 @@ class FirestoreSyncService {
   }
 
   void dispose() {
+    _authStateSubscription?.cancel();
+    _authStateSubscription = null;
     _cancelSubscriptions();
   }
 }

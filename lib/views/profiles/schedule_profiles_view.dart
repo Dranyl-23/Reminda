@@ -196,8 +196,14 @@ class ScheduleProfilesView extends ConsumerWidget {
           }
 
           final profile = profiles[index];
-          final isSelected = profile.isActive;
-          final count = allSchedules.where((s) => s.profileId == profile.id).length;
+          final isSelected = profile.isActive || profiles.length == 1;
+          final validProfileIds = profiles.map((p) => p.id).toSet();
+          final count = allSchedules.where((s) {
+            if (s.profileId == profile.id) return true;
+            final pid = s.profileId?.trim() ?? '';
+            final isOrphanedOrUnassigned = pid.isEmpty || !validProfileIds.contains(pid);
+            return isSelected && isOrphanedOrUnassigned;
+          }).length;
           final scheduleCountText = count == 0 ? 'No schedules' : '$count schedule${count > 1 ? 's' : ''}';
 
           return Dismissible(

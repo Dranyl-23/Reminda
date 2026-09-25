@@ -6,6 +6,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../core/database/firestore_instance.dart';
 import '../models/schedule_profile.dart';
 import 'profile_provider.dart';
+import 'schedule_provider.dart';
 import 'sound_settings_provider.dart';
 
 class UserSetupState {
@@ -178,15 +179,28 @@ class UserSetupNotifier extends StateNotifier<UserSetupState> {
               ? '$nameTrimmed Schedule'
               : 'My Schedule';
 
-      final initialProfile = ScheduleProfile(
-        name: profileName,
-        type: state.role,
-        colorHex: state.organizationColorHex,
-        isActive: true,
-      );
+      final existingActive = ref.read(activeProfileProvider);
+      final ScheduleProfile targetProfile;
+      if (existingActive != null) {
+        targetProfile = existingActive.copyWith(
+          name: profileName,
+          type: state.role,
+          colorHex: state.organizationColorHex,
+          isActive: true,
+          updatedAt: DateTime.now(),
+        );
+      } else {
+        targetProfile = ScheduleProfile(
+          name: profileName,
+          type: state.role,
+          colorHex: state.organizationColorHex,
+          isActive: true,
+        );
+      }
 
-      await ref.read(profileListProvider.notifier).addProfile(initialProfile);
-      await ref.read(profileListProvider.notifier).setActive(initialProfile.id);
+      await ref.read(profileListProvider.notifier).addProfile(targetProfile);
+      await ref.read(profileListProvider.notifier).setActive(targetProfile.id);
+      ref.read(scheduleListProvider.notifier).refreshFromLocal();
     } catch (e) {
       debugPrint('UserSetupProvider: Failed to create or activate initial profile: $e');
     }
@@ -206,7 +220,11 @@ class UserSetupNotifier extends StateNotifier<UserSetupState> {
           'defaultReminderLead': state.reminderLeadMinutes,
           'isSetupCompleted': true,
           'setupCompletedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true)).ignore(); // non-blocking background sync
+        }, SetOptions(merge: true)).then((_) {
+          debugPrint('UserSetupProvider: User setup synced to Firestore.');
+        }).catchError((e) {
+          debugPrint('UserSetupProvider: Background sync to Firestore failed: $e');
+        });
       }
     } catch (e) {
       debugPrint('UserSetupProvider: Failed to sync user setup to Firestore: $e');

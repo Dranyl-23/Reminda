@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
@@ -405,7 +406,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Widget _buildUserAvatar(dynamic auth, bool isDark) {
-    if (!auth.isGuest && auth.userPhotoUrl != null && auth.userPhotoUrl!.isNotEmpty) {
+    final String? photoUrl = auth.userPhotoUrl as String?;
+    if (photoUrl != null && photoUrl.trim().isNotEmpty) {
+      Widget imageWidget;
+      if (photoUrl.startsWith('data:image/')) {
+        try {
+          final commaIdx = photoUrl.indexOf(',');
+          final rawBase64 = commaIdx != -1 ? photoUrl.substring(commaIdx + 1) : photoUrl;
+          imageWidget = Image.memory(
+            base64Decode(rawBase64),
+            fit: BoxFit.cover,
+            width: 52,
+            height: 52,
+            errorBuilder: (context, error, stackTrace) => _buildInitialsAvatar(auth.userName),
+          );
+        } catch (_) {
+          imageWidget = _buildInitialsAvatar(auth.userName);
+        }
+      } else {
+        imageWidget = Image.network(
+          photoUrl,
+          fit: BoxFit.cover,
+          width: 52,
+          height: 52,
+          errorBuilder: (context, error, stackTrace) => _buildInitialsAvatar(auth.userName),
+        );
+      }
+
       return Container(
         width: 52,
         height: 52,
@@ -413,13 +440,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           shape: BoxShape.circle,
           border: Border.all(color: const Color(0xFF2563EB), width: 1.5),
         ),
-        child: ClipOval(
-          child: Image.network(
-            auth.userPhotoUrl!,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => _buildInitialsAvatar(auth.userName),
-          ),
-        ),
+        child: ClipOval(child: imageWidget),
       );
     }
     return _buildInitialsAvatar(auth.userName);

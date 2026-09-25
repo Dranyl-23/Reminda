@@ -5,34 +5,38 @@ service cloud.firestore {
     // Helper to check if caller is an authorized administrator
     function isAdmin() {
       return request.auth != null && (
-        request.auth.token.email in [
-          'alfielynard23@gmail.com',
-          'alfielynardrosalita@gmail.com',
-          'dranyl23@gmail.com'
-        ]
+        request.auth.token.admin == true ||
+        (
+          request.auth.token.email_verified == true &&
+          request.auth.token.email in [
+            'alfielynard23@gmail.com',
+            'alfielynardrosalita@gmail.com',
+            'dranyl23@gmail.com'
+          ]
+        )
       );
     }
 
     // User root document (Profile, Preferences & Telemetry)
     match /users/{userId} {
-      allow create, update: if true;
+      allow create, update: if request.auth != null && request.auth.uid == userId;
       allow read, delete: if request.auth != null && (request.auth.uid == userId || isAdmin());
       
       // User Schedules subcollection
       match /schedules/{scheduleId} {
-        allow create, update: if true;
+        allow create, update: if request.auth != null && request.auth.uid == userId;
         allow read, delete: if request.auth != null && (request.auth.uid == userId || isAdmin());
       }
       
       // User Custom Profiles subcollection
       match /profiles/{profileId} {
-        allow create, update: if true;
+        allow create, update: if request.auth != null && request.auth.uid == userId;
         allow read, delete: if request.auth != null && (request.auth.uid == userId || isAdmin());
       }
 
       // User Notifications subcollection
       match /notifications/{notificationId} {
-        allow create, update: if true;
+        allow create, update: if request.auth != null && request.auth.uid == userId;
         allow read, delete: if request.auth != null && (request.auth.uid == userId || isAdmin());
       }
     }
@@ -65,6 +69,12 @@ service cloud.firestore {
     match /system_config/{configId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // 6-Digit Class Block Schedule Sharing (Public Read & Create for Classmates)
+    match /shared_schedules/{shareCode} {
+      allow read, create: if true;
+      allow update, delete: if isAdmin();
     }
   }
 }

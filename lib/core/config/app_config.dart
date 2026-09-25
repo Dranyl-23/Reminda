@@ -67,5 +67,16 @@ class AppConfig {
     } catch (_) {}
     return '';
   }
+
+  /// Retrieves the Next.js Admin Portal AI Proxy URL (/api/ai/parse) if configured.
+  static String get aiProxyUrl {
+    try {
+      final url = dotenv.env['AI_PROXY_URL'];
+      if (url != null && url.trim().isNotEmpty && !url.contains('your_')) {
+        return url.trim();
+      }
+    } catch (_) {}
+    return '';
+  }
 }
 

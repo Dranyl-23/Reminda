@@ -82,27 +82,52 @@ class NotificationService {
             AndroidFlutterLocalNotificationsPlugin>();
 
     if (androidImplementation != null) {
-      for (final tone in AlarmTone.presets) {
-        final channelId = 'reminda_alarm_${channelVersion}_${tone.id}';
-        final soundResource = tone.id == 'system_default'
-            ? null
-            : RawResourceAndroidNotificationSound(tone.id);
-
-        final channel = AndroidNotificationChannel(
-          channelId,
-          'Reminda Alarms (${tone.name})',
-          description: 'High-priority alarms with ${tone.name} ringtone',
+      // Create Default System Alarm Channel first (guaranteed fallback)
+      try {
+        final defaultChannel = AndroidNotificationChannel(
+          'reminda_alarm_${channelVersion}_default',
+          'Reminda Alarms (System Default)',
+          description: 'High-priority alarms with default device ringtone',
           importance: Importance.max,
           playSound: true,
-          sound: soundResource,
+          sound: null,
           enableVibration: true,
           vibrationPattern: _vibrationPattern,
           showBadge: true,
           enableLights: true,
           audioAttributesUsage: AudioAttributesUsage.alarm,
         );
+        await androidImplementation.createNotificationChannel(defaultChannel);
+      } catch (e) {
+        debugPrint('NotificationService: Error creating default channel: $e');
+      }
 
-        await androidImplementation.createNotificationChannel(channel);
+      // Create Custom Tone Channels
+      for (final tone in AlarmTone.presets) {
+        try {
+          final channelId = 'reminda_alarm_${channelVersion}_${tone.id}';
+          final soundResource = tone.id == 'system_default'
+              ? null
+              : RawResourceAndroidNotificationSound(tone.id);
+
+          final channel = AndroidNotificationChannel(
+            channelId,
+            'Reminda Alarms (${tone.name})',
+            description: 'High-priority alarms with ${tone.name} ringtone',
+            importance: Importance.max,
+            playSound: true,
+            sound: soundResource,
+            enableVibration: true,
+            vibrationPattern: _vibrationPattern,
+            showBadge: true,
+            enableLights: true,
+            audioAttributesUsage: AudioAttributesUsage.alarm,
+          );
+
+          await androidImplementation.createNotificationChannel(channel);
+        } catch (e) {
+          debugPrint('NotificationService: Error creating channel for ${tone.name}: $e');
+        }
       }
     }
   }
@@ -176,73 +201,94 @@ class NotificationService {
     return hash & 0x7FFFFFFF;
   }
 
-  /// Helper to reliably schedule alarms across Android 12, 13, 14+ with multi-tier fallback
+  /// Helper to reliably schedule alarms across Android with multi-tier and sound fallback
   Future<void> _safeZonedSchedule({
     required int id,
     required String title,
     required String body,
     required tz.TZDateTime scheduledDate,
     required NotificationDetails details,
-    required DateTimeComponents matchDateTimeComponents,
+    DateTimeComponents? matchDateTimeComponents,
     required String payload,
   }) async {
-    // Tier 1: Try exact alarmClock mode (wakes screen & rings loudly through Doze mode)
-    try {
-      await _notificationsPlugin.zonedSchedule(
-        id,
-        title,
-        body,
-        scheduledDate,
-        details,
-        androidScheduleMode: AndroidScheduleMode.alarmClock,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: matchDateTimeComponents,
-        payload: payload,
-      );
-      debugPrint('NotificationService: Scheduled alarmClock #$id for $scheduledDate');
-      return;
-    } catch (e) {
-      debugPrint('NotificationService: alarmClock mode failed (#$id): $e. Trying exactAllowWhileIdle...');
-    }
+    // Attempt with provided details
+    final modes = [
+      AndroidScheduleMode.alarmClock,
+      AndroidScheduleMode.exactAllowWhileIdle,
+      AndroidScheduleMode.inexact,
+    ];
 
-    // Tier 2: Try exactAllowWhileIdle mode
-    try {
-      await _notificationsPlugin.zonedSchedule(
-        id,
-        title,
-        body,
-        scheduledDate,
-        details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: matchDateTimeComponents,
-        payload: payload,
-      );
-      debugPrint('NotificationService: Scheduled exactAllowWhileIdle #$id for $scheduledDate');
-      return;
-    } catch (e) {
-      debugPrint('NotificationService: exactAllowWhileIdle failed (#$id): $e. Trying inexact fallback...');
-    }
+    for (final mode in modes) {
+      try {
+        await _notificationsPlugin.zonedSchedule(
+          id,
+          title,
+          body,
+          scheduledDate,
+          details,
+          androidScheduleMode: mode,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: matchDateTimeComponents,
+          payload: payload,
+        );
+        debugPrint('NotificationService: Scheduled mode=$mode #$id for $scheduledDate');
+        return;
+      } catch (e) {
+        debugPrint('NotificationService: mode $mode failed (#$id): $e');
+        // If sound resource was stripped or invalid, retry with system default sound details
+        if (e.toString().contains('invalid_sound') || e.toString().contains('could not be found')) {
+          try {
+            final fallbackDetails = NotificationDetails(
+              android: AndroidNotificationDetails(
+                'reminda_alarm_${channelVersion}_default',
+                'Reminda Alarms',
+                channelDescription: channelDescription,
+                importance: Importance.max,
+                priority: Priority.max,
+                category: AndroidNotificationCategory.alarm,
+                audioAttributesUsage: AudioAttributesUsage.alarm,
+                sound: null,
+                ticker: 'Schedule Reminder',
+                icon: '@mipmap/ic_launcher',
+                styleInformation: BigTextStyleInformation(body),
+                fullScreenIntent: true,
+                visibility: NotificationVisibility.public,
+                channelShowBadge: true,
+                autoCancel: true,
+                enableLights: true,
+                enableVibration: true,
+                vibrationPattern: _vibrationPattern,
+                additionalFlags: _insistentFlags,
+                playSound: true,
+              ),
+              iOS: const DarwinNotificationDetails(
+                presentAlert: true,
+                presentBadge: true,
+                presentSound: true,
+                interruptionLevel: InterruptionLevel.timeSensitive,
+              ),
+            );
 
-    // Tier 3: Inexact fallback (guarantees status bar notification execution on all devices)
-    try {
-      await _notificationsPlugin.zonedSchedule(
-        id,
-        title,
-        body,
-        scheduledDate,
-        details,
-        androidScheduleMode: AndroidScheduleMode.inexact,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: matchDateTimeComponents,
-        payload: payload,
-      );
-      debugPrint('NotificationService: Scheduled inexact fallback #$id for $scheduledDate');
-    } catch (e) {
-      debugPrint('NotificationService: All scheduling attempts failed for #$id: $e');
+            await _notificationsPlugin.zonedSchedule(
+              id,
+              title,
+              body,
+              scheduledDate,
+              fallbackDetails,
+              androidScheduleMode: mode,
+              uiLocalNotificationDateInterpretation:
+                  UILocalNotificationDateInterpretation.absoluteTime,
+              matchDateTimeComponents: matchDateTimeComponents,
+              payload: payload,
+            );
+            debugPrint('NotificationService: Scheduled with fallback sound mode=$mode #$id');
+            return;
+          } catch (innerErr) {
+            debugPrint('NotificationService: Fallback sound mode $mode also failed: $innerErr');
+          }
+        }
+      }
     }
   }
 
@@ -257,43 +303,84 @@ class NotificationService {
     const title = 'Reminda Alarm Test';
     final body = 'Alarm sound ($activeToneId), vibration, and status bar notifications are active!';
 
-    await _notificationsPlugin.show(
-      999999,
-      title,
-      body,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          channelId,
-          'Reminda Alarms',
-          channelDescription: channelDescription,
-          importance: Importance.max,
-          priority: Priority.max,
-          category: AndroidNotificationCategory.alarm,
-          audioAttributesUsage: AudioAttributesUsage.alarm,
-          sound: soundResource,
-          ticker: 'Reminda Alarm Test',
-          icon: '@mipmap/ic_launcher',
-          styleInformation: BigTextStyleInformation(body),
-          fullScreenIntent: true,
-          visibility: NotificationVisibility.public,
-          channelShowBadge: true,
-          autoCancel: true,
-          enableLights: true,
-          enableVibration: true,
-          vibrationPattern: _vibrationPattern,
-          additionalFlags: _insistentFlags,
-          playSound: true,
+    try {
+      await _notificationsPlugin.show(
+        999999,
+        title,
+        body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            channelId,
+            'Reminda Alarms',
+            channelDescription: channelDescription,
+            importance: Importance.max,
+            priority: Priority.max,
+            category: AndroidNotificationCategory.alarm,
+            audioAttributesUsage: AudioAttributesUsage.alarm,
+            sound: soundResource,
+            ticker: 'Reminda Alarm Test',
+            icon: '@mipmap/ic_launcher',
+            styleInformation: BigTextStyleInformation(body),
+            fullScreenIntent: true,
+            visibility: NotificationVisibility.public,
+            channelShowBadge: true,
+            autoCancel: true,
+            enableLights: true,
+            enableVibration: true,
+            vibrationPattern: _vibrationPattern,
+            additionalFlags: _insistentFlags,
+            playSound: true,
+          ),
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+            sound: activeToneId == 'system_default' ? null : '$activeToneId.wav',
+            interruptionLevel: InterruptionLevel.timeSensitive,
+          ),
         ),
-        iOS: DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-          sound: activeToneId == 'system_default' ? null : '$activeToneId.wav',
-          interruptionLevel: InterruptionLevel.timeSensitive,
+        payload: 'test_notification',
+      );
+    } catch (e) {
+      debugPrint('NotificationService: showTestNotification custom sound error: $e. Using default sound fallback.');
+      // Immediate fallback with system default sound
+      await _notificationsPlugin.show(
+        999999,
+        title,
+        body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            'reminda_alarm_${channelVersion}_default',
+            'Reminda Alarms',
+            channelDescription: channelDescription,
+            importance: Importance.max,
+            priority: Priority.max,
+            category: AndroidNotificationCategory.alarm,
+            audioAttributesUsage: AudioAttributesUsage.alarm,
+            sound: null,
+            ticker: 'Reminda Alarm Test',
+            icon: '@mipmap/ic_launcher',
+            styleInformation: BigTextStyleInformation(body),
+            fullScreenIntent: true,
+            visibility: NotificationVisibility.public,
+            channelShowBadge: true,
+            autoCancel: true,
+            enableLights: true,
+            enableVibration: true,
+            vibrationPattern: _vibrationPattern,
+            additionalFlags: _insistentFlags,
+            playSound: true,
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+            interruptionLevel: InterruptionLevel.timeSensitive,
+          ),
         ),
-      ),
-      payload: 'test_notification',
-    );
+        payload: 'test_notification',
+      );
+    }
   }
 
   /// Schedules all reminders for a schedule entry across all selected weekdays
@@ -334,7 +421,16 @@ class NotificationService {
           alarmDay,
           alarmHour,
           alarmMinute,
+          mutedDates: entry.mutedDates,
+          leadMinutes: leadMinutes,
         );
+
+        final bool skippedImmediateWeek =
+            scheduledDate.difference(tz.TZDateTime.now(tz.local)).inDays >= 7;
+        final DateTimeComponents? matchComponents =
+            (!kIsWeb && Platform.isIOS && skippedImmediateWeek)
+                ? null
+                : DateTimeComponents.dayOfWeekAndTime;
 
         final String reminderText = leadMinutes == 0
             ? 'Starting now at ${TimeUtils.formatTo12Hour(entry.startTime)}'
@@ -384,7 +480,7 @@ class NotificationService {
               interruptionLevel: InterruptionLevel.timeSensitive,
             ),
           ),
-          matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+          matchDateTimeComponents: matchComponents,
           payload: entry.id,
         );
       }
@@ -417,8 +513,15 @@ class NotificationService {
     await _notificationsPlugin.cancelAll();
   }
 
-  /// Helper to calculate the next occurrence of a given day of week and time.
-  tz.TZDateTime _nextInstanceOfDayAndTime(int dayOfWeek, int hour, int minute) {
+  /// Helper to calculate the next occurrence of a given day of week and time,
+  /// automatically skipping any date listed in [mutedDates].
+  tz.TZDateTime _nextInstanceOfDayAndTime(
+    int dayOfWeek,
+    int hour,
+    int minute, {
+    List<String> mutedDates = const [],
+    int leadMinutes = 0,
+  }) {
     final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
 
     // Build the candidate for today at the requested time.
@@ -431,11 +534,20 @@ class NotificationService {
       minute,
     );
 
-    // Walk forward one day at a time until we land on the correct weekday
-    // AND the time is still in the future (with a 30-second grace window so
-    // a schedule saved just before its trigger time doesn't skip to next week).
     final tz.TZDateTime cutoff = now.subtract(const Duration(seconds: 30));
-    while (scheduledDate.weekday != dayOfWeek || scheduledDate.isBefore(cutoff)) {
+    int safetyCount = 0;
+    while (safetyCount < 365) {
+      safetyCount++;
+      final eventDate = scheduledDate.add(Duration(minutes: leadMinutes));
+      final eventIso = ScheduleEntry.dateToIso(eventDate);
+      final isMuted = mutedDates.contains(eventIso);
+
+      if (scheduledDate.weekday == dayOfWeek &&
+          !scheduledDate.isBefore(cutoff) &&
+          !isMuted) {
+        break;
+      }
+
       scheduledDate = tz.TZDateTime(
         tz.local,
         scheduledDate.year,

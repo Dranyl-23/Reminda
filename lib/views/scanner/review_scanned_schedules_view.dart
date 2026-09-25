@@ -289,6 +289,15 @@ class _ReviewScannedSchedulesViewState
                         final dayColor = TimeUtils.getDayColor(primaryDay);
                         final dayAbbr = TimeUtils.formatDaysAbbr(entry.daysOfWeek);
 
+                        // Detect conflicts against other scanned entries and existing saved schedules
+                        final existingSchedules = ref.watch(scheduleListProvider);
+                        final otherScanned = _entries.where((e) => e.id != entry.id).toList();
+                        final entryConflicts = TimeUtils.findConflicts(
+                          entry,
+                          [...otherScanned, ...existingSchedules],
+                        );
+                        final bool hasConflict = entryConflicts.isNotEmpty;
+
                         return Container(
                           margin: const EdgeInsets.only(bottom: 10),
                           padding: const EdgeInsets.all(14),
@@ -296,8 +305,10 @@ class _ReviewScannedSchedulesViewState
                             color: isDark ? AppColors.surfaceDark : Colors.white,
                             borderRadius: BorderRadius.circular(18),
                             border: Border.all(
-                              color: isDark ? AppColors.borderDark : const Color(0xFFE2E8F0),
-                              width: 1,
+                              color: hasConflict
+                                  ? const Color(0xFFF59E0B).withValues(alpha: 0.65)
+                                  : (isDark ? AppColors.borderDark : const Color(0xFFE2E8F0)),
+                              width: hasConflict ? 1.4 : 1,
                             ),
                             boxShadow: [
                               BoxShadow(
@@ -307,9 +318,39 @@ class _ReviewScannedSchedulesViewState
                               ),
                             ],
                           ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              if (hasConflict)
+                                Container(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF59E0B).withValues(alpha: 0.14),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.warning_amber_rounded, size: 14, color: Color(0xFFD97706)),
+                                      const SizedBox(width: 5),
+                                      Expanded(
+                                        child: Text(
+                                          'Overlap: ${entryConflicts.first.summaryText}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w800,
+                                            color: Color(0xFFD97706),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
                               // Left: Day Badge & Category Icon Column
                               Column(
                                 children: [
@@ -413,8 +454,10 @@ class _ReviewScannedSchedulesViewState
                               ),
                             ],
                           ),
-                        );
-                      },
+                        ],
+                      ),
+                    );
+                    },
                     ),
             ),
 

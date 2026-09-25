@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/page_transitions.dart';
 import '../../core/utils/time_utils.dart';
@@ -62,11 +63,14 @@ class ScheduleDetailView extends ConsumerWidget {
             icon: const Icon(Icons.share_outlined, size: 22),
             tooltip: 'Share Schedule',
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Shared "${liveEntry.title}"'),
-                  behavior: SnackBarBehavior.floating,
-                ),
+              final daysStr = TimeUtils.formatDaysAbbr(liveEntry.daysOfWeek);
+              final timeStr =
+                  '${TimeUtils.formatTo12Hour(liveEntry.startTime)} – ${TimeUtils.formatTo12Hour(liveEntry.endTime)}';
+              final locStr = liveEntry.location != null && liveEntry.location!.isNotEmpty
+                  ? '\n📍 Location: ${liveEntry.location}'
+                  : '';
+              Share.share(
+                '📅 ${liveEntry.title}\n🗓️ Days: $daysStr\n⏰ Time: $timeStr$locStr\n\nShared via Reminda',
               );
             },
           ),
@@ -428,6 +432,112 @@ class ScheduleDetailView extends ConsumerWidget {
                     _buildWeekdayCircle(7, 'SU', 'Sun', liveEntry.daysOfWeek, isDark),
                   ],
                 ),
+                if (liveEntry.nextOccurrenceDate() != null) ...[
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  const SizedBox(height: 14),
+                  Builder(
+                    builder: (context) {
+                      final nextDate = liveEntry.nextOccurrenceDate()!;
+                      final nextIso = ScheduleEntry.dateToIso(nextDate);
+                      final isSkipped = liveEntry.mutedDates.contains(nextIso);
+                      final formattedDate = TimeUtils.formatShortDate(nextDate);
+
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isSkipped
+                              ? const Color(0xFFF59E0B).withValues(alpha: isDark ? 0.14 : 0.08)
+                              : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC)),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isSkipped
+                                ? const Color(0xFFF59E0B).withValues(alpha: 0.45)
+                                : (isDark ? AppColors.borderDark : const Color(0xFFE2E8F0)),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isSkipped ? Icons.event_busy_rounded : Icons.beach_access_rounded,
+                              size: 20,
+                              color: isSkipped ? const Color(0xFFD97706) : const Color(0xFF2563EB),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    isSkipped
+                                        ? 'Skipped on $formattedDate'
+                                        : 'Holiday / No Class on $formattedDate?',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: isSkipped
+                                          ? const Color(0xFFD97706)
+                                          : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    isSkipped
+                                        ? 'Alarms muted for this date only. Resumes automatically next week.'
+                                        : 'Skip next alarm without turning off your weekly schedule.',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: isDark ? AppColors.textSecondaryDark : const Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: () async {
+                                final nowMuted = await ref
+                                    .read(scheduleListProvider.notifier)
+                                    .toggleMuteDate(liveEntry.id, nextIso);
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      nowMuted
+                                          ? 'Skipped alarm for $formattedDate. Will ring again next week!'
+                                          : 'Restored alarm for $formattedDate.',
+                                    ),
+                                    backgroundColor:
+                                        nowMuted ? const Color(0xFFD97706) : const Color(0xFF10B981),
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              },
+                              style: TextButton.styleFrom(
+                                backgroundColor: isSkipped
+                                    ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                                    : const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: Text(
+                                isSkipped ? 'Restore' : 'Skip Next',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: isSkipped ? const Color(0xFF10B981) : const Color(0xFFD97706),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ],
             ),
           ),

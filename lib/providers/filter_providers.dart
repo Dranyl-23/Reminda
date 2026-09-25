@@ -87,13 +87,14 @@ final activeOrUpcomingScheduleProvider = Provider<ScheduleLiveStatus?>((ref) {
   final currentWeekday = now.weekday;
   final currentMinutes = now.hour * 60 + now.minute;
 
-  // BUG FIX (Critical #7 — Part A): Also check yesterday's overnight shifts.
-  // An overnight shift that started yesterday (e.g. Sat 22:00 → Sun 02:00)
-  // must still show as ongoing when the weekday flips to Sunday.
+  final yesterdayDate = now.subtract(const Duration(days: 1));
   final yesterdayWeekday = currentWeekday == 1 ? 7 : currentWeekday - 1;
 
   final todayEntries = allSchedules
-      .where((e) => e.isActive && e.daysOfWeek.contains(currentWeekday))
+      .where((e) =>
+          e.isActive &&
+          e.daysOfWeek.contains(currentWeekday) &&
+          !e.isMutedOnDate(now))
       .toList()
     ..sort((a, b) => _parseTimeToMinutes(a.startTime).compareTo(_parseTimeToMinutes(b.startTime)));
 
@@ -102,7 +103,8 @@ final activeOrUpcomingScheduleProvider = Provider<ScheduleLiveStatus?>((ref) {
       .where((e) =>
           e.isActive &&
           e.spansNextDay &&
-          e.daysOfWeek.contains(yesterdayWeekday))
+          e.daysOfWeek.contains(yesterdayWeekday) &&
+          !e.isMutedOnDate(yesterdayDate))
       .toList();
 
   // 1. Check overnight entries from YESTERDAY that are still ongoing now
@@ -135,14 +137,7 @@ final activeOrUpcomingScheduleProvider = Provider<ScheduleLiveStatus?>((ref) {
       int endMin = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
       if (endMin < startMin) endMin += 24 * 60; // Overnight
 
-      // BUG FIX (Critical #7 — Part B): The old check `currentMinutes >= startMin`
-      // fails after midnight for overnight shifts because currentMinutes resets
-      // to a small value (e.g. 120 for 2:00 AM) while startMin stays large
-      // (e.g. 1320 for 10:00 PM). We must also accept the post-midnight window
-      // where currentMinutes is in the wrapped portion [0, endMin - 1440).
-      final bool isOngoing = endMin > 1440
-          ? (currentMinutes >= startMin || currentMinutes < (endMin - 1440))
-          : (currentMinutes >= startMin && currentMinutes < endMin);
+      final bool isOngoing = (currentMinutes >= startMin && currentMinutes < endMin);
 
       if (isOngoing) {
         return ScheduleLiveStatus(
@@ -202,7 +197,10 @@ final nextUpcomingAcrossAllDaysProvider = Provider<NextUpcomingScheduleResult?>(
 
   // 1. Check for upcoming class TODAY (start > now)
   final todayEntries = allSchedules
-      .where((e) => e.isActive && e.daysOfWeek.contains(currentWeekday))
+      .where((e) =>
+          e.isActive &&
+          e.daysOfWeek.contains(currentWeekday) &&
+          !e.isMutedOnDate(now))
       .toList()
     ..sort((a, b) => _parseTimeToMinutes(a.startTime).compareTo(_parseTimeToMinutes(b.startTime)));
 
@@ -231,7 +229,10 @@ final nextUpcomingAcrossAllDaysProvider = Provider<NextUpcomingScheduleResult?>(
     final candidateWeekday = candidateDate.weekday;
 
     final candidateEntries = allSchedules
-        .where((e) => e.isActive && e.daysOfWeek.contains(candidateWeekday))
+        .where((e) =>
+            e.isActive &&
+            e.daysOfWeek.contains(candidateWeekday) &&
+            !e.isMutedOnDate(candidateDate))
         .toList()
       ..sort((a, b) => _parseTimeToMinutes(a.startTime).compareTo(_parseTimeToMinutes(b.startTime)));
 
