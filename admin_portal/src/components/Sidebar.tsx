@@ -11,7 +11,8 @@ import {
   School,
   Megaphone,
   Sliders,
-  LogOut
+  LogOut,
+  Globe
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -23,6 +24,7 @@ export function Sidebar() {
 
   const mainNav = [
     { href: "/", label: "Analytics", icon: LayoutGrid },
+    { href: "/website", label: "Marketing Website", icon: Globe },
     { href: "/institutions", label: "Institutions & Schools", icon: School },
     { href: "/announcements", label: "Broadcast Notices", icon: Megaphone },
     { href: "/config", label: "App Config & Flags", icon: Sliders },

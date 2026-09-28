@@ -47,6 +47,12 @@ admin_portal/node_modules/
 admin_portal/.next/
 admin_portal/.env.local
 
+# Reminda Landing Marketing Site
+reminda_landing/node_modules/
+reminda_landing/.next/
+reminda_landing/.env.local
+
+
 # Symbolication related
 app.*.symbols
 
