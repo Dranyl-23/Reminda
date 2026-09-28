@@ -4,12 +4,12 @@ export const defaultMarketingConfig: MarketingSiteConfig = {
   announcement: {
     enabled: false,
     badge: "NEW RELEASE",
-    text: "Reminda v1.0.0+14 is now live with enhanced Android 15 Home Screen Widgets!",
+    text: "Reminda v1.0.0+15 is now live with enhanced Android 15 Home Screen Widgets & URL launcher fix!",
     linkText: "Download Now",
     linkUrl: "https://github.com/Dranyl-23/Reminda/releases/latest",
   },
   hero: {
-    versionBadge: "v1.0.0+14",
+    versionBadge: "v1.0.0+15",
     title: "Class schedules done the smart way",
     subtitle: "Reminda is an intelligent college timetable app. Built with zero-blur PDF OCR, Android home screen widgets, and offline-first alarms. You can quickly master your entire academic semester with this companion.",
     primaryButtonText: "Download for Free",
@@ -57,7 +57,7 @@ export const defaultMarketingConfig: MarketingSiteConfig = {
     },
   ],
   downloadHub: {
-    tag: "Production Release • v1.0.0+14",
+    tag: "Production Release • v1.0.0+15",
     title: "Never miss another class.",
     subtitle: "Download Reminda for Android today and turn your registration slip into an intelligent, alarm-synced schedule on your smartphone.",
     universalApkUrl: "https://github.com/Dranyl-23/Reminda/releases/latest/download/app-arm64-v8a-release.apk",
