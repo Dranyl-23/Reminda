@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../../../core/utils/url_launcher_helper.dart';
 import '../../../providers/announcement_provider.dart';
 
 class AnnouncementBanner extends ConsumerWidget {
@@ -134,11 +134,8 @@ class AnnouncementBanner extends ConsumerWidget {
                 padding: const EdgeInsets.only(left: 34),
                 child: GestureDetector(
                   onTap: () async {
-                    if (announcement.actionUrl.isNotEmpty) {
-                      final uri = Uri.parse(announcement.actionUrl);
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(uri, mode: LaunchMode.externalApplication);
-                      }
+                    if (announcement.actionUrl.trim().isNotEmpty) {
+                      await launchAppUrl(context, announcement.actionUrl);
                     }
                   },
                   child: Container(

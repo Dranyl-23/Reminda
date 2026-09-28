@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/constants/app_version.dart';
+import '../../core/utils/url_launcher_helper.dart';
 import 'privacy_policy_view.dart';
 import 'terms_of_service_view.dart';
 
@@ -113,6 +115,33 @@ class AboutSchedlyView extends StatelessWidget {
                         fontSize: 13.5,
                         color: isDark ? AppColors.textSecondaryDark : const Color(0xFF64748B),
                         height: 1.45,
+                      ),
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    // Visit Official Website Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () => launchAppUrl(context, AppConstants.officialWebsiteUrl),
+                        icon: const Icon(Icons.language_rounded, size: 18),
+                        label: const Text(
+                          'Visit Official Website',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2563EB),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -267,6 +296,13 @@ class AboutSchedlyView extends StatelessWidget {
                           ),
                         );
                       },
+                    ),
+                    _buildSubtleDivider(isDark),
+                    _buildLegalTile(
+                      icon: Icons.language_rounded,
+                      title: 'Official Website (reminda.app)',
+                      isDark: isDark,
+                      onTap: () => launchAppUrl(context, AppConstants.officialWebsiteUrl),
                     ),
                   ],
                 ),

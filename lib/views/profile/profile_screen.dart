@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_constants.dart';
+import '../../core/utils/url_launcher_helper.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/schedule_provider.dart';
@@ -274,7 +276,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                   _buildSubtleDivider(isDark),
 
-                  // Item 5: Help & Support
+                  // Item 5: Official Website
+                  _buildNavTile(
+                    icon: Icons.language_rounded,
+                    title: 'Official Website',
+                    subtitle: 'Visit reminda.app web hub',
+                    isDark: isDark,
+                    trailingWidget: const Icon(
+                      Icons.open_in_new_rounded,
+                      size: 16,
+                      color: Color(0xFF94A3B8),
+                    ),
+                    onTap: () => launchAppUrl(context, AppConstants.officialWebsiteUrl),
+                  ),
+                  _buildSubtleDivider(isDark),
+
+                  // Item 6: Help & Support
                   _buildNavTile(
                     icon: Icons.help_outline_rounded,
                     title: 'Help & Support',
