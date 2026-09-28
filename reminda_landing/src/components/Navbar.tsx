@@ -43,9 +43,16 @@ export function Navbar() {
           
           {/* Brand */}
           <div className="flex w-full lg:w-auto items-center justify-between">
-            <a href="#" className="text-lg">
-              <span className="font-bold text-slate-800 text-xl">Reminda</span>
-              <span className="text-slate-500 text-xl">.app</span>
+            <a href="#" className="flex items-center gap-2.5 text-lg group">
+              <img
+                src="/icon.png"
+                alt="Reminda Logo"
+                className="w-8 h-8 rounded-lg object-contain shadow-xs group-hover:scale-105 transition-transform"
+              />
+              <div className="flex items-center">
+                <span className="font-bold text-slate-800 text-xl tracking-tight">Reminda</span>
+                <span className="text-slate-500 text-xl">.app</span>
+              </div>
             </a>
 
             <div className="block lg:hidden">

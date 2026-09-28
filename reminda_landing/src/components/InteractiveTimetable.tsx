@@ -161,11 +161,11 @@ const mockScheduleData: Record<number, ScheduleItem[]> = {
 };
 
 const dayNames = [
-  { day: 1, name: "Monday" },
-  { day: 2, name: "Tuesday" },
-  { day: 3, name: "Wednesday" },
-  { day: 4, name: "Thursday" },
-  { day: 5, name: "Friday" },
+  { day: 1, name: "Monday", short: "Mon" },
+  { day: 2, name: "Tuesday", short: "Tue" },
+  { day: 3, name: "Wednesday", short: "Wed" },
+  { day: 4, name: "Thursday", short: "Thu" },
+  { day: 5, name: "Friday", short: "Fri" },
 ];
 
 export function InteractiveTimetable() {
@@ -175,7 +175,7 @@ export function InteractiveTimetable() {
   const items = mockScheduleData[selectedDay] || [];
 
   return (
-    <div id="preview" className="max-w-6xl mx-auto px-5 py-16">
+    <div id="preview" className="max-w-6xl mx-auto px-4 sm:px-5 py-16">
       
       {/* Astroship Section Heading */}
       <div className="mb-10 text-center md:text-left">
@@ -188,11 +188,11 @@ export function InteractiveTimetable() {
       </div>
 
       {/* Main Container */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-8 overflow-hidden">
         
         {/* Days Pill Row */}
-        <div className="flex items-center justify-between pb-6 border-b border-slate-100 flex-wrap gap-3">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-5 border-b border-slate-100 gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden py-0.5 max-w-full">
             {dayNames.map((d) => {
               const isSelected = selectedDay === d.day;
               return (
@@ -203,19 +203,20 @@ export function InteractiveTimetable() {
                     const dayClasses = mockScheduleData[d.day] || [];
                     setActiveItem(dayClasses[0] || null);
                   }}
-                  className={`px-4 py-2 rounded-sm text-xs font-semibold transition-all ${
+                  className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs font-semibold transition-all shrink-0 whitespace-nowrap ${
                     isSelected
-                      ? "bg-black text-white"
+                      ? "bg-black text-white shadow-xs"
                       : "bg-slate-100 hover:bg-slate-200 text-slate-700"
                   }`}
                 >
-                  {d.name}
+                  <span className="inline sm:hidden">{d.short}</span>
+                  <span className="hidden sm:inline">{d.name}</span>
                 </button>
               );
             })}
           </div>
 
-          <span className="text-xs font-medium text-slate-500 font-mono">
+          <span className="text-xs font-medium text-slate-500 font-mono self-start sm:self-auto">
             {items.length} classes scheduled
           </span>
         </div>
