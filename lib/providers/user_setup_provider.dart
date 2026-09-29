@@ -238,7 +238,7 @@ class UserSetupNotifier extends StateNotifier<UserSetupState> {
           .collection('users')
           .doc(uid)
           .get()
-          .timeout(const Duration(seconds: 4));
+          .timeout(const Duration(seconds: 10));
 
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;

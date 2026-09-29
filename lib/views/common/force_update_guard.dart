@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/config/remote_config_service.dart';
+import 'system_maintenance_banner.dart';
 
 class ForceUpdateGuard extends StatelessWidget {
   final Widget child;
@@ -12,7 +13,8 @@ class ForceUpdateGuard extends StatelessWidget {
     return ValueListenableBuilder<bool>(
       valueListenable: RemoteConfigService.instance.updateRequiredNotifier,
       builder: (context, isRequired, _) {
-        if (!isRequired) return child;
+        if (!isRequired) return SystemMaintenanceBannerWrapper(child: child);
+
 
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final config = RemoteConfigService.instance;

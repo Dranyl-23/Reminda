@@ -392,7 +392,10 @@ class _EditScannedEntryViewState extends State<EditScannedEntryView> {
         ],
       ),
       body: SafeArea(
-        child: Column(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Column(
           children: [
             Expanded(
               child: SingleChildScrollView(
@@ -791,8 +794,10 @@ class _EditScannedEntryViewState extends State<EditScannedEntryView> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 
   Widget _buildFieldLabel(String label, bool isDark) {
     return Padding(

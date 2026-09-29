@@ -316,10 +316,13 @@ class _AddEditScheduleViewState extends ConsumerState<AddEditScheduleView> {
                 ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(20),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.all(20),
           children: [
             if (liveConflicts.isNotEmpty) ...[
               Container(
@@ -704,6 +707,8 @@ class _AddEditScheduleViewState extends ConsumerState<AddEditScheduleView> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 }

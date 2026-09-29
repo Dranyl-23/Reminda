@@ -59,12 +59,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         await ref
             .read(userSetupProvider.notifier)
             .checkAndRestoreCloudSetup(user.uid)
-            .timeout(const Duration(milliseconds: 1500));
+            .timeout(const Duration(seconds: 8));
         if (!mounted) return;
         await ref
             .read(scheduleListProvider.notifier)
             .refreshFromCloud()
-            .timeout(const Duration(milliseconds: 1500));
+            .timeout(const Duration(seconds: 8));
         if (!mounted) return;
         ref.read(profileListProvider.notifier).refreshFromLocal();
       } catch (_) {}

@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import '../core/auth/desktop_google_auth_service.dart';
 import '../core/config/app_config.dart';
 import '../core/database/profile_repository.dart';
 import '../core/database/schedule_repository.dart';
@@ -265,27 +268,39 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> signInWithGoogle() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) {
-        // User cancelled Google picker
-        state = state.copyWith(isLoading: false);
-        return false;
+      User? user;
+
+      if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
+        // Desktop platforms use DesktopGoogleAuthService with loopback redirect
+        final UserCredential? userCredential = await DesktopGoogleAuthService.signIn();
+        if (userCredential == null) {
+          state = state.copyWith(isLoading: false);
+          return false;
+        }
+        user = userCredential.user;
+      } else {
+        final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+        if (googleUser == null) {
+          // User cancelled Google picker
+          state = state.copyWith(isLoading: false);
+          return false;
+        }
+
+        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+        final OAuthCredential credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+
+        final UserCredential userCredential =
+            await _firebaseAuth.signInWithCredential(credential);
+        user = userCredential.user;
       }
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      final OAuthCredential credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      final UserCredential userCredential =
-          await _firebaseAuth.signInWithCredential(credential);
-      final user = userCredential.user;
-
       if (user != null) {
-        final name = user.displayName ?? googleUser.displayName ?? 'Google User';
-        final email = user.email ?? googleUser.email;
-        final photo = user.photoURL ?? googleUser.photoUrl;
+        final name = user.displayName ?? (user.email?.split('@').first ?? 'Google User');
+        final email = user.email ?? '';
+        final photo = user.photoURL;
 
         await _box.put('isGuestLogin', false);
         await _box.put('isLoggedIn', true);
@@ -398,7 +413,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Logout from Firebase and local state
   Future<void> logout() async {
     try {
-      await _googleSignIn.signOut();
+      if (kIsWeb || (!Platform.isWindows && !Platform.isLinux)) {
+        await _googleSignIn.signOut();
+      }
     } catch (_) {}
     try {
       await _firebaseAuth.signOut();
@@ -452,16 +469,23 @@ class AuthNotifier extends StateNotifier<AuthState> {
   String _mapGoogleSignInError(dynamic error) {
     final errStr = error.toString().toLowerCase();
 
-    // 1. User intentionally cancelled
+    // 1. User intentionally cancelled or closed window
     if (errStr.contains('canceled') ||
         errStr.contains('cancelled') ||
         errStr.contains('12501') ||
         errStr.contains('popup_closed') ||
+        errStr.contains('popup-closed-by-user') ||
+        errStr.contains('web-context-cancelled') ||
         errStr.contains('sign_in_canceled')) {
       return ''; // Silent cancel, no error banner
     }
 
-    // 2. Network / Offline
+    // 2. Unsupported platform / missing plugin
+    if (errStr.contains('missingpluginexception') || errStr.contains('no implementation found')) {
+      return 'Google Sign-In is not supported on this platform. Please sign in with Email or Continue as Guest.';
+    }
+
+    // 3. Network / Offline
     if (errStr.contains('network_error') ||
         errStr.contains('network') ||
         errStr.contains('socketexception') ||
@@ -471,17 +495,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return 'No internet connection. Please check your Wi-Fi or Mobile Data, or tap Continue as Guest.';
     }
 
-    // 3. Google Play Services unavailable
+    // 4. Google Play Services unavailable
     if (errStr.contains('play_services') || errStr.contains('api_not_available')) {
       return 'Google Play Services is not available. Please try Email login or Guest Mode.';
     }
 
-    // 4. Default clean fallback
+    // 5. Default clean fallback
     return 'Google Sign-In could not connect. Please check your connection or Continue as Guest.';
   }
 
   String _mapFirebaseError(String code, String? defaultMsg) {
     switch (code) {
+      case 'cancelled':
+      case 'popup-closed-by-user':
+      case 'web-context-cancelled':
+        return '';
       case 'user-not-found':
         return 'No account found with this email.';
       case 'wrong-password':
@@ -499,8 +527,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
         return 'This account has been disabled. Please contact support.';
       case 'too-many-requests':
         return 'Too many login attempts. Please wait a moment and try again.';
+      case 'operation-not-allowed':
+        return 'Sign-in method is not enabled in Firebase Console.';
       default:
-        return 'Authentication failed. Please check your connection and try again.';
+        if (defaultMsg != null && defaultMsg.trim().isNotEmpty) {
+          return defaultMsg.trim();
+        }
+        return 'Authentication failed ($code). Please try again.';
     }
   }
 }

@@ -4,17 +4,29 @@ import '../../models/schedule_profile.dart';
 
 class ProfileRepository {
   static const String boxName = 'profiles_box';
+  static ProfileRepository? _instance;
+
+  factory ProfileRepository() => _instance ??= ProfileRepository._internal();
+  ProfileRepository._internal();
+
   Box<String>? _box;
   List<ScheduleProfile>? _cachedProfiles;
 
   Box<String> get _safeBox {
     if (_box != null && _box!.isOpen) return _box!;
-    if (Hive.isBoxOpen(boxName)) return Hive.box<String>(boxName);
+    if (Hive.isBoxOpen(boxName)) {
+      _box = Hive.box<String>(boxName);
+      return _box!;
+    }
     throw StateError('ProfileRepository box has not been initialized');
   }
 
   Future<void> init() async {
-    _box = await Hive.openBox<String>(boxName);
+    if (Hive.isBoxOpen(boxName)) {
+      _box = Hive.box<String>(boxName);
+    } else {
+      _box = await Hive.openBox<String>(boxName);
+    }
 
     // If empty, initialize default profiles from design
     if (_box!.isEmpty) {

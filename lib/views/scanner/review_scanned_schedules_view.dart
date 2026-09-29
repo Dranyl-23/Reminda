@@ -102,10 +102,27 @@ class _ReviewScannedSchedulesViewState
       return;
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final activeProfile = ref.read(activeProfileProvider);
+    final existingInProfile = activeProfile != null
+        ? ref.read(scheduleListProvider).where((e) => e.profileId == activeProfile.id).toList()
+        : <ScheduleEntry>[];
+
+    String strategy = 'merge';
+    if (existingInProfile.isNotEmpty && activeProfile != null) {
+      final chosen = await _showSaveStrategyDialog(
+        context,
+        activeProfile.name,
+        existingInProfile.length,
+        isDark,
+      );
+      if (chosen == null) return; // User canceled
+      strategy = chosen;
+    }
+
     setState(() => _isSaving = true);
 
     try {
-      final activeProfile = ref.read(activeProfileProvider);
       final entriesToSave = _entries.map((e) {
         if (e.profileId == null && activeProfile != null) {
           return e.copyWith(profileId: activeProfile.id);
@@ -113,7 +130,22 @@ class _ReviewScannedSchedulesViewState
         return e;
       }).toList();
 
-      await ref.read(scheduleListProvider.notifier).addBatch(entriesToSave);
+      final notifier = ref.read(scheduleListProvider.notifier);
+      String successMsg;
+
+      if (strategy == 'replace' && activeProfile != null) {
+        await notifier.deleteSchedulesForProfile(activeProfile.id);
+        await notifier.addBatch(entriesToSave);
+        successMsg = 'Replaced timetable with ${entriesToSave.length} schedules!';
+      } else if (strategy == 'merge') {
+        final mergedCount = await notifier.mergeBatch(entriesToSave);
+        successMsg = mergedCount > 0
+            ? 'Saved ${entriesToSave.length} schedules ($mergedCount existing merged)!'
+            : 'Successfully saved ${entriesToSave.length} schedules!';
+      } else {
+        await notifier.addBatch(entriesToSave);
+        successMsg = 'Successfully added ${entriesToSave.length} schedules!';
+      }
 
       // Asynchronously submit anonymous ground-truth AI telemetry if opted-in
       AiTrainingTelemetryService.recordGroundTruthSample(
@@ -129,7 +161,7 @@ class _ReviewScannedSchedulesViewState
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Successfully saved ${entriesToSave.length} schedules!'),
+            content: Text(successMsg),
             backgroundColor: const Color(0xFF16A34A),
             behavior: SnackBarBehavior.floating,
           ),
@@ -139,6 +171,151 @@ class _ReviewScannedSchedulesViewState
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  Future<String?> _showSaveStrategyDialog(
+    BuildContext context,
+    String profileName,
+    int existingCount,
+    bool isDark,
+  ) {
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.sync_problem_rounded, color: Color(0xFF2563EB), size: 22),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'Existing Schedules',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Your profile "$profileName" already has $existingCount schedule entries.',
+              style: TextStyle(
+                fontSize: 13.5,
+                color: isDark ? AppColors.textSecondaryDark : const Color(0xFF475569),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildDialogOption(
+              ctx: ctx,
+              value: 'merge',
+              icon: Icons.merge_type_rounded,
+              iconColor: const Color(0xFF2563EB),
+              title: 'Merge & Update (Recommended)',
+              subtitle: 'Updates matching time slots and adds new classes without duplicates.',
+              isDark: isDark,
+              isRecommended: true,
+            ),
+            const SizedBox(height: 8),
+            _buildDialogOption(
+              ctx: ctx,
+              value: 'replace',
+              icon: Icons.refresh_rounded,
+              iconColor: const Color(0xFFDC2626),
+              title: 'Replace Current Timetable',
+              subtitle: 'Clears old schedules in this profile and saves the new scan.',
+              isDark: isDark,
+            ),
+            const SizedBox(height: 8),
+            _buildDialogOption(
+              ctx: ctx,
+              value: 'append',
+              icon: Icons.add_circle_outline_rounded,
+              iconColor: const Color(0xFF10B981),
+              title: 'Keep Both (Append All)',
+              subtitle: 'Adds all scanned entries alongside existing entries.',
+              isDark: isDark,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDialogOption({
+    required BuildContext ctx,
+    required String value,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required bool isDark,
+    bool isRecommended = false,
+  }) {
+    return InkWell(
+      onTap: () => Navigator.pop(ctx, value),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isRecommended
+              ? const Color(0xFF2563EB).withValues(alpha: isDark ? 0.15 : 0.08)
+              : (isDark ? AppColors.backgroundDark : const Color(0xFFF8FAFC)),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isRecommended
+                ? const Color(0xFF2563EB).withValues(alpha: 0.5)
+                : (isDark ? AppColors.borderDark : const Color(0xFFE2E8F0)),
+            width: isRecommended ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: iconColor, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? AppColors.textSecondaryDark : const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -173,7 +350,10 @@ class _ReviewScannedSchedulesViewState
         ],
       ),
       body: SafeArea(
-        child: Column(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 880),
+            child: Column(
           children: [
             Expanded(
               child: _entries.isEmpty
@@ -505,6 +685,8 @@ class _ReviewScannedSchedulesViewState
           ],
         ),
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 }

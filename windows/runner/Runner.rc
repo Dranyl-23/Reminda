@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.dranyl.schedulescanner" "\0"
-            VALUE "FileDescription", "schedule_scanner" "\0"
+            VALUE "CompanyName", "Reminda" "\0"
+            VALUE "FileDescription", "Reminda" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "schedule_scanner" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.dranyl.schedulescanner. All rights reserved." "\0"
-            VALUE "OriginalFilename", "schedule_scanner.exe" "\0"
-            VALUE "ProductName", "schedule_scanner" "\0"
+            VALUE "InternalName", "Reminda" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Reminda. All rights reserved." "\0"
+            VALUE "OriginalFilename", "Reminda.exe" "\0"
+            VALUE "ProductName", "Reminda" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

@@ -197,11 +197,14 @@ class _SendFeedbackViewState extends ConsumerState<SendFeedbackView> {
         backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xFFF8FAFC),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
               // Header Card
               Container(
                 width: double.infinity,
@@ -426,8 +429,10 @@ class _SendFeedbackViewState extends ConsumerState<SendFeedbackView> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 
   Widget _buildFieldLabel(String label, bool isDark) {
     return Padding(

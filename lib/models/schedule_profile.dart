@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../core/constants/app_colors.dart';
 
@@ -75,15 +75,31 @@ class ScheduleProfile {
   }
 
   factory ScheduleProfile.fromJson(Map<String, dynamic> json) {
+    DateTime parsedUpdatedAt;
+    final rawUpdated = json['updatedAt'];
+    if (rawUpdated == null) {
+      parsedUpdatedAt = DateTime.now();
+    } else if (rawUpdated is DateTime) {
+      parsedUpdatedAt = rawUpdated;
+    } else if (rawUpdated is String) {
+      parsedUpdatedAt = DateTime.tryParse(rawUpdated) ?? DateTime.now();
+    } else if (rawUpdated is int) {
+      parsedUpdatedAt = DateTime.fromMillisecondsSinceEpoch(rawUpdated);
+    } else {
+      try {
+        parsedUpdatedAt = (rawUpdated as dynamic).toDate() as DateTime;
+      } catch (_) {
+        parsedUpdatedAt = DateTime.tryParse(rawUpdated.toString()) ?? DateTime.now();
+      }
+    }
+
     return ScheduleProfile(
       id: json['id'] as String?,
       name: json['name'] as String? ?? 'Default Schedule',
       type: json['type'] as String? ?? 'custom',
       colorHex: json['colorHex'] as String? ?? '#2563EB',
       isActive: json['isActive'] as bool? ?? false,
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.tryParse(json['updatedAt'] as String) ?? DateTime.now()
-          : DateTime.now(),
+      updatedAt: parsedUpdatedAt,
     );
   }
 }

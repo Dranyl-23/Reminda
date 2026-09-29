@@ -86,12 +86,19 @@ class TimetableTheme {
     final base = palettes[index];
     if (!isDark) return base;
 
+    // Solid opaque card background in dark mode: rich primary tint blended into dark surface.
+    // 100% opaque so background grid lines and any overlapping elements never show through.
+    final darkCardBg = Color.alphaBlend(
+      base.primary.withValues(alpha: 0.35),
+      const Color(0xFF161B2E),
+    );
+
     return TimetableTheme(
       primary: base.primary,
-      background: base.primary.withValues(alpha: 0.18),
-      border: base.primary.withValues(alpha: 0.45),
+      background: darkCardBg,
+      border: base.primary.withValues(alpha: 0.65),
       textColor: Colors.white,
-      badgeBg: base.primary.withValues(alpha: 0.3),
+      badgeBg: base.primary.withValues(alpha: 0.45),
       badgeText: Colors.white,
     );
   }
@@ -113,9 +120,29 @@ class WeeklyTimetableGrid extends StatefulWidget {
   State<WeeklyTimetableGrid> createState() => _WeeklyTimetableGridState();
 }
 
+class _TimetableLayoutEntry {
+  final ScheduleEntry entry;
+  final bool isSpillover;
+  final int startMinutes;
+  final int endMinutes;
+  final int durationMinutes;
+  final double top;
+  final double height;
+
+  const _TimetableLayoutEntry({
+    required this.entry,
+    required this.isSpillover,
+    required this.startMinutes,
+    required this.endMinutes,
+    required this.durationMinutes,
+    required this.top,
+    required this.height,
+  });
+}
+
 class _WeeklyTimetableGridState extends State<WeeklyTimetableGrid> {
   static const double _hourHeight = 65.0;
-  static const double _dayWidth = 125.0;
+  static const double _minDayWidth = 125.0;
   static const double _timeColWidth = 52.0;
   static const int _startHour = 6;  // 6:00 AM
   static const int _endHour = 22;   // 10:00 PM
@@ -174,7 +201,7 @@ class _WeeklyTimetableGridState extends State<WeeklyTimetableGrid> {
       final todayWeekday = now.weekday; // 1 = Mon .. 7 = Sun
       if (todayWeekday > 3 && _bodyHorizontalController.hasClients) {
         _bodyHorizontalController.animateTo(
-          (todayWeekday - 1) * _dayWidth - 30,
+          (todayWeekday - 1) * _minDayWidth - 30,
           duration: const Duration(milliseconds: 350),
           curve: Curves.easeOutCubic,
         );
@@ -212,8 +239,16 @@ class _WeeklyTimetableGridState extends State<WeeklyTimetableGrid> {
     final weekDates = _getWeekDates(widget.activeWeekDate);
     final displayedDays = _showWeekends ? weekDates : weekDates.sublist(0, 5);
 
-    return Column(
-      children: [
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth;
+        final dayCount = displayedDays.length;
+        final double dayWidth = ((availableWidth - _timeColWidth) / dayCount > _minDayWidth)
+            ? (availableWidth - _timeColWidth) / dayCount
+            : _minDayWidth;
+
+        return Column(
+          children: [
         // Top Week Navigator Bar
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
@@ -322,7 +357,7 @@ class _WeeklyTimetableGridState extends State<WeeklyTimetableGrid> {
                   scrollDirection: Axis.horizontal,
                   physics: const ClampingScrollPhysics(),
                   child: SizedBox(
-                    width: displayedDays.length * _dayWidth,
+                    width: displayedDays.length * dayWidth,
                     child: Row(
                       children: displayedDays.map((date) {
                         final isToday = date.year == now.year &&
@@ -332,7 +367,7 @@ class _WeeklyTimetableGridState extends State<WeeklyTimetableGrid> {
                         final dayNum = date.day.toString();
 
                         return Container(
-                          width: _dayWidth,
+                          width: dayWidth,
                           height: 58,
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           decoration: BoxDecoration(
@@ -455,7 +490,7 @@ class _WeeklyTimetableGridState extends State<WeeklyTimetableGrid> {
                     scrollDirection: Axis.horizontal,
                     physics: const ClampingScrollPhysics(),
                     child: SizedBox(
-                      width: displayedDays.length * _dayWidth,
+                      width: displayedDays.length * dayWidth,
                       height: (_endHour - _startHour) * _hourHeight,
                       child: Stack(
                         children: [
@@ -468,7 +503,7 @@ class _WeeklyTimetableGridState extends State<WeeklyTimetableGrid> {
                                     date.day == now.day;
 
                                 return Container(
-                                  width: _dayWidth,
+                                  width: dayWidth,
                                   decoration: BoxDecoration(
                                     color: isToday
                                         ? const Color(0xFF2563EB).withValues(alpha: 0.02)
@@ -504,10 +539,10 @@ class _WeeklyTimetableGridState extends State<WeeklyTimetableGrid> {
                           ),
 
                           // Subject Schedule Event Blocks
-                          ..._buildEventBlocks(displayedDays, isDark),
+                          ..._buildEventBlocks(displayedDays, isDark, dayWidth),
 
                           // Current Time Indicator Line (for Today)
-                          _buildCurrentTimeIndicator(displayedDays),
+                          _buildCurrentTimeIndicator(displayedDays, dayWidth),
                         ],
                       ),
                     ),
@@ -519,9 +554,11 @@ class _WeeklyTimetableGridState extends State<WeeklyTimetableGrid> {
         ),
       ],
     );
+      },
+    );
   }
 
-  List<Widget> _buildEventBlocks(List<DateTime> displayedDays, bool isDark) {
+  List<Widget> _buildEventBlocks(List<DateTime> displayedDays, bool isDark, double dayWidth) {
     final List<Widget> blocks = [];
 
     for (int dayIndex = 0; dayIndex < displayedDays.length; dayIndex++) {
@@ -538,14 +575,20 @@ class _WeeklyTimetableGridState extends State<WeeklyTimetableGrid> {
         (e) => e.isActive && e.spansNextDay && e.daysOfWeek.contains(prevWeekday),
       );
 
-      // Combine both: regular entries for this day + overnight spillover from yesterday
-      final allDayEntries = [...dayEntries, ...overnightSpillover];
+      // Combine and deduplicate by entry.id to avoid duplicate renders
+      final seenIds = <String>{};
+      final uniqueDayEntries = <ScheduleEntry>[];
+      for (final entry in [...dayEntries, ...overnightSpillover]) {
+        if (seenIds.add(entry.id)) {
+          uniqueDayEntries.add(entry);
+        }
+      }
 
-      for (final entry in allDayEntries) {
+      final layoutEntries = <_TimetableLayoutEntry>[];
+      for (final entry in uniqueDayEntries) {
         final startMinutes = _timeToMinutes(entry.startTime);
         final endMinutes = _timeToMinutes(entry.endTime);
 
-        // For overnight spillover entries from previous day, start from midnight
         final bool isSpillover = entry.spansNextDay && !entry.daysOfWeek.contains(weekday);
         final effectiveStartMinutes = isSpillover ? 0 : startMinutes;
         final effectiveEndMinutes = isSpillover ? endMinutes : endMinutes;
@@ -554,14 +597,10 @@ class _WeeklyTimetableGridState extends State<WeeklyTimetableGrid> {
         final startOffsetMinutes = effectiveStartMinutes - gridStartMinutes;
         final durationMinutes = effectiveEndMinutes > effectiveStartMinutes
             ? (effectiveEndMinutes - effectiveStartMinutes)
-            : (isSpillover ? effectiveEndMinutes : (24 * 60 - effectiveStartMinutes + effectiveEndMinutes)); // Midnight span
+            : (isSpillover ? effectiveEndMinutes : (24 * 60 - effectiveStartMinutes + effectiveEndMinutes));
 
         if (startOffsetMinutes + durationMinutes < 0) continue;
 
-        // BUG FIX (High #17): Cap each block at the grid boundary.
-        // Previously overnight shifts generated a Positioned block that extended
-        // past _endHour, causing visual overflow. Now we render the block
-        // capped at the grid bottom so it doesn't overflow the UI.
         final gridTotalMinutes = (_endHour - _startHour) * 60;
         final cappedDuration = (startOffsetMinutes + durationMinutes > gridTotalMinutes)
             ? (gridTotalMinutes - startOffsetMinutes).clamp(0, gridTotalMinutes)
@@ -569,110 +608,200 @@ class _WeeklyTimetableGridState extends State<WeeklyTimetableGrid> {
 
         final top = (startOffsetMinutes / 60.0) * _hourHeight;
         final height = (cappedDuration / 60.0) * _hourHeight;
-        final left = dayIndex * _dayWidth;
 
-        final palette = TimetableTheme.forTitle(entry.title, isDark);
+        layoutEntries.add(_TimetableLayoutEntry(
+          entry: entry,
+          isSpillover: isSpillover,
+          startMinutes: effectiveStartMinutes,
+          endMinutes: effectiveStartMinutes + durationMinutes,
+          durationMinutes: durationMinutes,
+          top: top,
+          height: height,
+        ));
+      }
 
-        blocks.add(
-          Positioned(
-            top: top + 1,
-            left: left + 3,
-            width: _dayWidth - 6,
-            height: (height - 3).clamp(32.0, 600.0),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ScheduleDetailView(entry: entry),
-                    ),
-                  );
-                },
+      // Sort entries chronologically: earlier start first, longer duration first
+      layoutEntries.sort((a, b) {
+        final cmpStart = a.startMinutes.compareTo(b.startMinutes);
+        if (cmpStart != 0) return cmpStart;
+        final cmpDur = b.durationMinutes.compareTo(a.durationMinutes);
+        if (cmpDur != 0) return cmpDur;
+        return a.entry.id.compareTo(b.entry.id);
+      });
+
+      // Group into clusters of overlapping events
+      final clusters = <List<_TimetableLayoutEntry>>[];
+      var currentCluster = <_TimetableLayoutEntry>[];
+      int clusterEnd = -1;
+
+      for (final item in layoutEntries) {
+        if (currentCluster.isEmpty) {
+          currentCluster.add(item);
+          clusterEnd = item.endMinutes;
+        } else if (item.startMinutes < clusterEnd) {
+          // Overlaps with the current cluster
+          currentCluster.add(item);
+          if (item.endMinutes > clusterEnd) {
+            clusterEnd = item.endMinutes;
+          }
+        } else {
+          clusters.add(currentCluster);
+          currentCluster = [item];
+          clusterEnd = item.endMinutes;
+        }
+      }
+      if (currentCluster.isNotEmpty) {
+        clusters.add(currentCluster);
+      }
+
+      // For each cluster, assign parallel lanes (sub-columns) so overlapping cards sit side-by-side
+      for (final cluster in clusters) {
+        final laneEndMinutes = <int>[];
+        final itemLane = <_TimetableLayoutEntry, int>{};
+
+        for (final item in cluster) {
+          int assignedLane = -1;
+          for (int laneIdx = 0; laneIdx < laneEndMinutes.length; laneIdx++) {
+            if (laneEndMinutes[laneIdx] <= item.startMinutes) {
+              assignedLane = laneIdx;
+              laneEndMinutes[laneIdx] = item.endMinutes;
+              break;
+            }
+          }
+          if (assignedLane == -1) {
+            assignedLane = laneEndMinutes.length;
+            laneEndMinutes.add(item.endMinutes);
+          }
+          itemLane[item] = assignedLane;
+        }
+
+        final totalLanes = laneEndMinutes.length;
+        final colLeft = dayIndex * dayWidth;
+        final availableColWidth = dayWidth - 6.0;
+        final laneWidth = availableColWidth / totalLanes;
+
+        for (final item in cluster) {
+          final lane = itemLane[item]!;
+          final blockLeft = colLeft + 3.0 + (lane * laneWidth);
+          final blockWidth = (laneWidth - (totalLanes > 1 ? 2.0 : 0.0)).clamp(24.0, dayWidth);
+          final blockHeight = (item.height - 3.0).clamp(32.0, 600.0);
+
+          final entry = item.entry;
+          final palette = TimetableTheme.forTitle(entry.title, isDark);
+
+          blocks.add(
+            Positioned(
+              top: item.top + 1,
+              left: blockLeft,
+              width: blockWidth,
+              height: blockHeight,
+              child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: palette.background,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: palette.border, width: 1.2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: palette.primary.withValues(alpha: isDark ? 0.2 : 0.08),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        entry.title,
-                        maxLines: height > 55 ? 2 : 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w800,
-                          color: palette.textColor,
-                          letterSpacing: -0.2,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ScheduleDetailView(entry: entry),
                         ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: totalLanes > 1 ? 5 : 7,
+                        vertical: 4,
                       ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Icon(Icons.access_time_rounded, size: 10, color: palette.primary),
-                          const SizedBox(width: 3),
-                          Expanded(
-                            child: Text(
-                              '${TimeUtils.formatTo12Hour(entry.startTime)} – ${TimeUtils.formatTo12Hour(entry.endTime)}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w600,
-                                color: palette.textColor.withValues(alpha: 0.85),
-                              ),
-                            ),
+                      decoration: BoxDecoration(
+                        color: palette.background,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: palette.border, width: 1.2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: palette.primary.withValues(alpha: isDark ? 0.25 : 0.08),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                      if (entry.location != null && height > 52) ...[
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: palette.badgeBg,
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: Text(
-                            entry.location!,
-                            maxLines: 1,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            entry.title,
+                            maxLines: blockHeight > 55 ? 2 : 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 9,
+                              fontSize: totalLanes > 1 ? 10.5 : 11.5,
                               fontWeight: FontWeight.w800,
-                              color: palette.badgeText,
+                              color: palette.textColor,
+                              letterSpacing: -0.2,
+                              height: 1.2,
                             ),
                           ),
-                        ),
-                      ],
-                    ],
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              if (blockWidth > 68) ...[
+                                Icon(Icons.access_time_rounded, size: 10, color: palette.primary),
+                                const SizedBox(width: 3),
+                              ],
+                              Expanded(
+                                child: Text(
+                                  blockWidth < 75
+                                      ? TimeUtils.formatTo12Hour(entry.startTime)
+                                      : '${TimeUtils.formatTo12Hour(entry.startTime)} – ${TimeUtils.formatTo12Hour(entry.endTime)}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: totalLanes > 1 ? 8.5 : 9.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: palette.textColor.withValues(alpha: 0.9),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (entry.location != null &&
+                              entry.location!.isNotEmpty &&
+                              blockHeight > 50) ...[
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: palette.badgeBg,
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: Text(
+                                entry.location!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: totalLanes > 1 ? 8.0 : 9.0,
+                                  fontWeight: FontWeight.w800,
+                                  color: palette.badgeText,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        );
+          );
+        }
       }
     }
 
     return blocks;
   }
 
-  Widget _buildCurrentTimeIndicator(List<DateTime> displayedDays) {
+  Widget _buildCurrentTimeIndicator(List<DateTime> displayedDays, double dayWidth) {
     final now = DateTime.now();
     final todayIndex = displayedDays.indexWhere(
       (d) => d.year == now.year && d.month == now.month && d.day == now.day,
@@ -689,12 +818,12 @@ class _WeeklyTimetableGridState extends State<WeeklyTimetableGrid> {
     }
 
     final top = ((currentMinutes - startMinutes) / 60.0) * _hourHeight;
-    final left = todayIndex * _dayWidth;
+    final left = todayIndex * dayWidth;
 
     return Positioned(
       top: top - 4,
       left: left,
-      width: _dayWidth,
+      width: dayWidth,
       child: Row(
         children: [
           Container(

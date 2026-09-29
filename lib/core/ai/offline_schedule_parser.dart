@@ -54,6 +54,12 @@ class OfflineScheduleParser {
       );
     }
 
+    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) {
+      throw Exception(
+        'On-device image OCR is currently supported on Android & iOS. On desktop, please use Cloud AI to parse schedule images, or import a digital PDF.',
+      );
+    }
+
     final tempDir = await getTemporaryDirectory();
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final tempFile = File('${tempDir.path}/temp_offline_scan_$timestamp.jpg');

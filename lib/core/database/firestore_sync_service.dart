@@ -3,8 +3,11 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import '../../models/schedule_category.dart';
 import '../../models/schedule_entry.dart';
 import '../../models/schedule_profile.dart';
+import '../config/remote_config_service.dart';
+import '../utils/schedule_deduplicator.dart';
 import 'firestore_instance.dart';
 import 'profile_repository.dart';
 import 'schedule_repository.dart';
@@ -52,29 +55,30 @@ class FirestoreSyncService {
     });
   }
 
-  /// Pull all cloud data and bidirectional merge with local Hive database.
-  ///
-  /// BUG FIX (Critical #1): `clearAll()` is now only called when the cloud
-  /// actually has data. Previously it was called unconditionally, wiping ALL
-  /// local schedules whenever the cloud returned 0 results (e.g. new user,
-  /// network glitch, or empty collection after login).
-  ///
-  /// BUG FIX (Critical #2): A `_isSyncing` guard prevents `UserSyncService`
-  /// and this method from running concurrently during login, which could cause
-  /// a race where local data is deleted while it is still being uploaded.
   bool _isSyncing = false;
+  Completer<void>? _activeSyncCompleter;
 
   Future<void> pullAndSyncAll({VoidCallback? onDataChanged}) async {
-    // Race condition guard — only one sync can run at a time
-    if (_isSyncing) {
-      debugPrint('FirestoreSyncService: Sync already in progress, skipping duplicate call.');
+    if (RemoteConfigService.instance.maintenanceMode) {
+      debugPrint('FirestoreSyncService: Cloud sync paused due to active server maintenance mode.');
+      return;
+    }
+
+    // If a sync is already running, await it so caller doesn't return before data is saved
+    if (_isSyncing && _activeSyncCompleter != null) {
+      debugPrint('FirestoreSyncService: Sync already in progress, awaiting existing sync...');
+      await _activeSyncCompleter!.future;
+      onDataChanged?.call();
       return;
     }
     _isSyncing = true;
+    _activeSyncCompleter = Completer<void>();
 
     final uid = _currentUserId;
     if (uid == null) {
       _isSyncing = false;
+      _activeSyncCompleter?.complete();
+      _activeSyncCompleter = null;
       return;
     }
 
@@ -89,22 +93,63 @@ class FirestoreSyncService {
         }, SetOptions(merge: true));
       }
 
-      bool hasChanges = false;
+      // 1. Sync Profiles first so incoming schedules can reference valid profile IDs
+      final profRef = _userProfilesRef;
+      if (profRef != null) {
+        final snapshot = await profRef.get().timeout(const Duration(seconds: 15));
+        final cloudProfiles = <ScheduleProfile>[];
 
-      // 1. Sync Schedules with Per-Item Timestamp Conflict Resolution (updatedAt)
+        for (final doc in snapshot.docs) {
+          try {
+            final data = Map<String, dynamic>.from(doc.data());
+            if (!data.containsKey('id') || (data['id'] as String?)?.isEmpty == true) {
+              data['id'] = doc.id;
+            }
+            final profile = ScheduleProfile.fromJson(data);
+            cloudProfiles.add(profile);
+          } catch (e, st) {
+            debugPrint('FirestoreSyncService: Failed to parse cloud profile doc ${doc.id}: $e\n$st');
+          }
+        }
+        debugPrint('FirestoreSyncService: Successfully parsed ${cloudProfiles.length}/${snapshot.docs.length} cloud profiles.');
+
+        if (cloudProfiles.isNotEmpty) {
+          await _profileRepo.clearAll();
+          for (final p in cloudProfiles) {
+            await _profileRepo.saveProfile(p);
+          }
+        } else {
+          // Fresh profile setup
+          final localProfiles = _profileRepo.getAllProfiles();
+          if (localProfiles.isEmpty) {
+            await _profileRepo.resetDefaultProfiles();
+          }
+          final refreshed = _profileRepo.getAllProfiles();
+          for (final p in refreshed) {
+            await syncProfileToCloud(p);
+          }
+        }
+      }
+
+      // 2. Sync Schedules with Per-Item Timestamp Conflict Resolution (updatedAt)
       final schedRef = _userSchedulesRef;
       if (schedRef != null) {
-        final snapshot = await schedRef.get().timeout(const Duration(seconds: 10));
+        final snapshot = await schedRef.get().timeout(const Duration(seconds: 15));
 
         final cloudMap = <String, ScheduleEntry>{};
         for (final doc in snapshot.docs) {
           try {
-            final entry = ScheduleEntry.fromJson(doc.data());
+            final data = Map<String, dynamic>.from(doc.data());
+            if (!data.containsKey('id') || (data['id'] as String?)?.isEmpty == true) {
+              data['id'] = doc.id;
+            }
+            final entry = ScheduleEntry.fromJson(data);
             cloudMap[entry.id] = entry;
-          } catch (e) {
-            debugPrint('Failed to parse cloud schedule doc ${doc.id}: $e');
+          } catch (e, st) {
+            debugPrint('FirestoreSyncService: Failed to parse cloud schedule doc ${doc.id}: $e\n$st');
           }
         }
+        debugPrint('FirestoreSyncService: Successfully parsed ${cloudMap.length}/${snapshot.docs.length} cloud schedules.');
 
         final localEntries = _scheduleRepo.getAllSchedules();
         final localMap = <String, ScheduleEntry>{
@@ -135,80 +180,103 @@ class FirestoreSyncService {
           }
         }
 
-        if (mergedEntries.isNotEmpty) {
-          await _scheduleRepo.saveBatch(mergedEntries);
-          hasChanges = true;
+        // Deduplicate merged schedules so that duplicates in local or cloud are eliminated
+        final dedupResult = ScheduleDeduplicator.deduplicate(mergedEntries);
+
+        if (dedupResult.removed.isNotEmpty) {
+          final duplicateIds = dedupResult.removed.map((e) => e.id).toList();
+          for (final entry in dedupResult.removed) {
+            await _scheduleRepo.deleteSchedule(entry.id);
+          }
+          await deleteBatchSchedulesFromCloud(duplicateIds);
+          debugPrint('FirestoreSyncService: Purged ${duplicateIds.length} duplicate schedules from local and cloud.');
+        }
+
+        if (dedupResult.kept.isNotEmpty) {
+          await _scheduleRepo.saveBatch(dedupResult.kept);
+          debugPrint('FirestoreSyncService: Saved ${dedupResult.kept.length} unique schedules to local repository.');
         }
         if (toUploadToCloud.isNotEmpty) {
-          await syncBatchSchedulesToCloud(toUploadToCloud);
+          // Only upload kept or updated entries to cloud, never deleted duplicates
+          final keptIds = dedupResult.kept.map((e) => e.id).toSet();
+          final validUploads = toUploadToCloud.where((e) => keptIds.contains(e.id)).toList();
+          if (validUploads.isNotEmpty) {
+            await syncBatchSchedulesToCloud(validUploads);
+          }
         }
       }
 
-      // 2. Sync Profiles
-      final profRef = _userProfilesRef;
-      if (profRef != null) {
-        final snapshot = await profRef.get().timeout(const Duration(seconds: 10));
-        final cloudProfiles = <ScheduleProfile>[];
-
-        for (final doc in snapshot.docs) {
-          try {
-            final profile = ScheduleProfile.fromJson(doc.data());
-            cloudProfiles.add(profile);
-          } catch (e) {
-            debugPrint('Failed to parse cloud profile doc ${doc.id}: $e');
-          }
-        }
-
-        if (cloudProfiles.isNotEmpty) {
-          await _profileRepo.clearAll();
-          for (final p in cloudProfiles) {
-            await _profileRepo.saveProfile(p);
-          }
-          hasChanges = true;
-        } else {
-          // Fresh profile setup
-          final localProfiles = _profileRepo.getAllProfiles();
-          if (localProfiles.isEmpty) {
-            await _profileRepo.resetDefaultProfiles();
-          }
-          final refreshed = _profileRepo.getAllProfiles();
-          for (final p in refreshed) {
-            await syncProfileToCloud(p);
-          }
-          hasChanges = true;
-        }
-      }
-
-      // 3. Reconcile any orphaned or unassigned schedule profileIds to the active profile
+      // 3. Reconcile schedule profileIds intelligently by category & active profile
       final currentProfiles = _profileRepo.getAllProfiles();
       if (currentProfiles.isNotEmpty) {
         final validProfileIds = currentProfiles.map((p) => p.id).toSet();
         final activeProfile = _profileRepo.getActiveProfile() ?? currentProfiles.first;
+
+        final schoolProfile = currentProfiles.firstWhere(
+          (p) => p.type == 'school' && p.isActive,
+          orElse: () => currentProfiles.firstWhere(
+            (p) => p.type == 'school',
+            orElse: () => activeProfile,
+          ),
+        );
+        final workProfile = currentProfiles.firstWhere(
+          (p) => p.type == 'work' && p.isActive,
+          orElse: () => currentProfiles.firstWhere(
+            (p) => p.type == 'work',
+            orElse: () => activeProfile,
+          ),
+        );
+        final dutyProfile = currentProfiles.firstWhere(
+          (p) => p.type == 'duty' && p.isActive,
+          orElse: () => currentProfiles.firstWhere(
+            (p) => p.type == 'duty',
+            orElse: () => activeProfile,
+          ),
+        );
+
         final currentSchedules = _scheduleRepo.getAllSchedules();
         final healedSchedules = <ScheduleEntry>[];
 
         for (final entry in currentSchedules) {
           final pid = entry.profileId?.trim() ?? '';
+          final linkedProfile = currentProfiles.where((p) => p.id == pid).firstOrNull;
+
+          String? targetPid;
           if (pid.isEmpty || !validProfileIds.contains(pid)) {
-            healedSchedules.add(entry.copyWith(profileId: activeProfile.id));
+            // Unassigned or pointing to a deleted profile
+            if (entry.category == ScheduleCategory.classSchedule) {
+              targetPid = schoolProfile.id;
+            } else if (entry.category == ScheduleCategory.duty) {
+              targetPid = dutyProfile.id;
+            } else if (entry.category == ScheduleCategory.workShift) {
+              targetPid = workProfile.id;
+            } else {
+              targetPid = activeProfile.id;
+            }
+          } else if (entry.category == ScheduleCategory.classSchedule && linkedProfile?.type == 'work') {
+            // Mismatch: School class attached to a Work profile
+            targetPid = schoolProfile.id;
+          }
+
+          if (targetPid != null && targetPid != pid) {
+            healedSchedules.add(entry.copyWith(profileId: targetPid));
           }
         }
 
         if (healedSchedules.isNotEmpty) {
           await _scheduleRepo.saveBatch(healedSchedules);
           await syncBatchSchedulesToCloud(healedSchedules);
-          hasChanges = true;
         }
       }
 
-      if (hasChanges && onDataChanged != null) {
-        onDataChanged();
-      }
+      onDataChanged?.call();
     } catch (e) {
       debugPrint('FirestoreSyncService: Handled error/timeout during pullAndSyncAll: $e');
     } finally {
-      // Always release the sync lock so future syncs can proceed
+      // Always release the sync lock and complete awaiting callers
       _isSyncing = false;
+      _activeSyncCompleter?.complete();
+      _activeSyncCompleter = null;
     }
   }
 
@@ -220,8 +288,12 @@ class FirestoreSyncService {
       _schedulesSubscription = schedRef.snapshots().listen((snapshot) async {
         bool changed = false;
         for (final change in snapshot.docChanges) {
-          final data = change.doc.data();
-          if (data == null) continue;
+          final rawData = change.doc.data();
+          if (rawData == null) continue;
+          final data = Map<String, dynamic>.from(rawData);
+          if (!data.containsKey('id') || (data['id'] as String?)?.isEmpty == true) {
+            data['id'] = change.doc.id;
+          }
 
           if (change.type == DocumentChangeType.added ||
               change.type == DocumentChangeType.modified) {
@@ -251,8 +323,12 @@ class FirestoreSyncService {
       _profilesSubscription = profRef.snapshots().listen((snapshot) async {
         bool changed = false;
         for (final change in snapshot.docChanges) {
-          final data = change.doc.data();
-          if (data == null) continue;
+          final rawData = change.doc.data();
+          if (rawData == null) continue;
+          final data = Map<String, dynamic>.from(rawData);
+          if (!data.containsKey('id') || (data['id'] as String?)?.isEmpty == true) {
+            data['id'] = change.doc.id;
+          }
 
           if (change.type == DocumentChangeType.added ||
               change.type == DocumentChangeType.modified) {
@@ -277,6 +353,10 @@ class FirestoreSyncService {
 
   /// Upload or update a single schedule entry to Cloud Firestore
   Future<void> syncScheduleToCloud(ScheduleEntry entry) async {
+    if (RemoteConfigService.instance.maintenanceMode) {
+      debugPrint('FirestoreSyncService: Schedule syncToCloud skipped due to active server maintenance mode.');
+      return;
+    }
     final ref = _userSchedulesRef;
     if (ref == null) return;
     try {
@@ -288,6 +368,10 @@ class FirestoreSyncService {
 
   /// Upload a batch of schedules to Cloud Firestore atomically (safely chunked under 500 ops)
   Future<void> syncBatchSchedulesToCloud(List<ScheduleEntry> entries) async {
+    if (RemoteConfigService.instance.maintenanceMode) {
+      debugPrint('FirestoreSyncService: Batch cloud sync paused due to active server maintenance mode.');
+      return;
+    }
     final ref = _userSchedulesRef;
     if (ref == null || entries.isEmpty) return;
 
@@ -310,6 +394,10 @@ class FirestoreSyncService {
 
   /// Delete a schedule from Cloud Firestore
   Future<void> deleteScheduleFromCloud(String scheduleId) async {
+    if (RemoteConfigService.instance.maintenanceMode) {
+      debugPrint('FirestoreSyncService: Schedule deleteFromCloud skipped due to active server maintenance mode.');
+      return;
+    }
     final ref = _userSchedulesRef;
     if (ref == null) return;
     try {
@@ -319,8 +407,37 @@ class FirestoreSyncService {
     }
   }
 
+  /// Delete a batch of schedules from Cloud Firestore atomically (safely chunked under 500 ops)
+  Future<void> deleteBatchSchedulesFromCloud(List<String> scheduleIds) async {
+    if (RemoteConfigService.instance.maintenanceMode) {
+      debugPrint('FirestoreSyncService: Batch delete skipped due to active server maintenance mode.');
+      return;
+    }
+    final ref = _userSchedulesRef;
+    if (ref == null || scheduleIds.isEmpty) return;
+
+    const int batchLimit = 400; // Safe threshold well below Firestore's 500 ops cap
+    try {
+      for (var i = 0; i < scheduleIds.length; i += batchLimit) {
+        final chunk = scheduleIds.sublist(i, min(i + batchLimit, scheduleIds.length));
+        final batch = _firestore.batch();
+        for (final id in chunk) {
+          batch.delete(ref.doc(id));
+        }
+        await batch.commit();
+      }
+      debugPrint('FirestoreSyncService: Batch-deleted ${scheduleIds.length} schedules from cloud.');
+    } catch (e) {
+      debugPrint('FirestoreSyncService: Failed batch delete: $e');
+    }
+  }
+
   /// Upload or update a profile to Cloud Firestore
   Future<void> syncProfileToCloud(ScheduleProfile profile) async {
+    if (RemoteConfigService.instance.maintenanceMode) {
+      debugPrint('FirestoreSyncService: Profile syncToCloud skipped due to active server maintenance mode.');
+      return;
+    }
     final ref = _userProfilesRef;
     if (ref == null) return;
     try {
@@ -332,6 +449,10 @@ class FirestoreSyncService {
 
   /// Delete a profile from Cloud Firestore
   Future<void> deleteProfileFromCloud(String profileId) async {
+    if (RemoteConfigService.instance.maintenanceMode) {
+      debugPrint('FirestoreSyncService: Profile deleteFromCloud skipped due to active server maintenance mode.');
+      return;
+    }
     final ref = _userProfilesRef;
     if (ref == null) return;
     try {

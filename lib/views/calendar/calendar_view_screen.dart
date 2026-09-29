@@ -93,6 +93,79 @@ class _CalendarViewScreenState extends ConsumerState<CalendarViewScreen> {
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
   }
 
+  Future<void> _cleanUpDuplicates() async {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.auto_fix_high_rounded, color: Color(0xFF2563EB), size: 22),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Clean Up Duplicates',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'This will analyze your schedules for duplicate or redundant entries occupying the same time slots. It keeps the most detailed entry and removes redundant copies from both local storage and cloud sync.\n\nProceed?',
+          style: TextStyle(
+            fontSize: 13.5,
+            color: isDark ? AppColors.textSecondaryDark : const Color(0xFF475569),
+            height: 1.45,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+          ),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF2563EB),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.cleaning_services_rounded, size: 18),
+            label: const Text('Clean Up'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final removedCount = await ref.read(scheduleListProvider.notifier).deduplicateSchedules();
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          removedCount > 0
+              ? 'Removed $removedCount duplicate schedule${removedCount == 1 ? '' : 's'} successfully!'
+              : 'No duplicate schedules found. Your timetable is clean!',
+        ),
+        backgroundColor: removedCount > 0 ? const Color(0xFF16A34A) : const Color(0xFF64748B),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -110,6 +183,11 @@ class _CalendarViewScreenState extends ConsumerState<CalendarViewScreen> {
         title: const Text('Timetable & Calendar'),
         elevation: 0,
         actions: [
+          IconButton(
+            onPressed: _cleanUpDuplicates,
+            tooltip: 'Clean Up Duplicates',
+            icon: const Icon(Icons.auto_fix_high_rounded, size: 21),
+          ),
           IconButton(
             onPressed: _isExportingImage ? null : _exportTimetableAsImage,
             tooltip: 'Export Timetable Image (Wallpaper)',
@@ -278,9 +356,12 @@ class _CalendarViewScreenState extends ConsumerState<CalendarViewScreen> {
     DateTime selectedDate,
     List<ScheduleEntry> dayEvents,
   ) {
-    return Column(
-      children: [
-        // TableCalendar Container
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 960),
+        child: Column(
+          children: [
+            // TableCalendar Container
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
@@ -561,6 +642,8 @@ class _CalendarViewScreenState extends ConsumerState<CalendarViewScreen> {
                 ),
         ),
       ],
+    ),
+      ),
     );
   }
 }

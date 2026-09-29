@@ -165,9 +165,12 @@ class ScheduleProfilesView extends ConsumerWidget {
           ),
         ],
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        itemCount: profiles.length + 1, // +1 for the Add New Profile button at the end
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 880),
+          child: ListView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+            itemCount: profiles.length + 1, // +1 for the Add New Profile button at the end
         itemBuilder: (context, index) {
           if (index == profiles.length) {
             // End Action Card: Add New Profile
@@ -371,6 +374,8 @@ class ScheduleProfilesView extends ConsumerWidget {
             ),
           );
         },
+      ),
+        ),
       ),
     );
   }

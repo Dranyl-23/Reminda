@@ -4,17 +4,33 @@ import '../../models/schedule_entry.dart';
 
 class ScheduleRepository {
   static const String boxName = 'schedules_box';
+  static ScheduleRepository? _instance;
+
+  factory ScheduleRepository() => _instance ??= ScheduleRepository._internal();
+  ScheduleRepository._internal();
+
   Box<String>? _box;
 
   /// Synchronized in-memory cache so getAllSchedules() and getScheduleById()
   /// execute in O(1) / 0ms without repeated jsonDecode parsing on the main thread.
   Map<String, ScheduleEntry>? _memoryCache;
 
-  Box<String>? get _safeBox => (_box != null && _box!.isOpen) ? _box : null;
+  Box<String>? get _safeBox {
+    if (_box != null && _box!.isOpen) return _box;
+    if (Hive.isBoxOpen(boxName)) {
+      _box = Hive.box<String>(boxName);
+      return _box;
+    }
+    return null;
+  }
 
   Future<void> init() async {
     await Hive.initFlutter();
-    _box = await Hive.openBox<String>(boxName);
+    if (Hive.isBoxOpen(boxName)) {
+      _box = Hive.box<String>(boxName);
+    } else {
+      _box = await Hive.openBox<String>(boxName);
+    }
     _rebuildCacheFromDisk();
   }
 

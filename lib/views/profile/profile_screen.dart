@@ -121,17 +121,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         elevation: 0,
         backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xFFF8FAFC),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 880),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Column(
           children: [
             // User Profile Card (Clickable to open detailed profile view)
-            InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const UserProfileDetailView()),
-                );
+            Semantics(
+              button: true,
+              label: 'View profile details for ${auth.userName}',
+              child: InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const UserProfileDetailView()),
+                  );
               },
               borderRadius: BorderRadius.circular(20),
               child: Container(
@@ -192,8 +198,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
             ),
+          ),
 
-            const SizedBox(height: 16),
+          const SizedBox(height: 16),
 
             // Grouped Navigation Card matching user mockup with clean subtle dividers
             Container(
@@ -371,6 +378,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ],
         ),
       ),
+        ),
+      ),
     );
   }
 
@@ -432,6 +441,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           final rawBase64 = commaIdx != -1 ? photoUrl.substring(commaIdx + 1) : photoUrl;
           imageWidget = Image.memory(
             base64Decode(rawBase64),
+            semanticLabel: 'User profile photo',
             fit: BoxFit.cover,
             width: 52,
             height: 52,
@@ -443,6 +453,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       } else {
         imageWidget = Image.network(
           photoUrl,
+          semanticLabel: 'User profile photo',
           fit: BoxFit.cover,
           width: 52,
           height: 52,

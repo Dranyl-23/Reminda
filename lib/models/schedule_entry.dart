@@ -49,6 +49,47 @@ class ScheduleEntry {
 
   bool isMutedOnDate(DateTime date) => mutedDates.contains(dateToIso(date));
 
+  /// Whether this schedule is currently active/ongoing right now.
+  bool isCurrentlyOngoing([DateTime? now]) {
+    final n = now ?? DateTime.now();
+    final currentWeekday = n.weekday;
+    final currentMinutes = n.hour * 60 + n.minute;
+    final yesterdayDate = n.subtract(const Duration(days: 1));
+    final yesterdayWeekday = currentWeekday == 1 ? 7 : currentWeekday - 1;
+
+    bool isOngoing = false;
+
+    // Check: did this shift start YESTERDAY and is still ongoing now?
+    if (spansNextDay &&
+        daysOfWeek.contains(yesterdayWeekday) &&
+        !isMutedOnDate(yesterdayDate)) {
+      final endParts = endTime.split(':');
+      if (endParts.length == 2) {
+        final endMin = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
+        if (currentMinutes < endMin) {
+          isOngoing = true;
+        }
+      }
+    }
+
+    // Check: does this shift start today and is currently ongoing?
+    if (!isOngoing &&
+        daysOfWeek.contains(currentWeekday) &&
+        !isMutedOnDate(n)) {
+      final startParts = startTime.split(':');
+      final endParts = endTime.split(':');
+      if (startParts.length == 2 && endParts.length == 2) {
+        final startMin = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
+        int endMin = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
+        if (endMin < startMin) endMin += 24 * 60; // Overnight
+
+        isOngoing = (currentMinutes >= startMin && currentMinutes < endMin);
+      }
+    }
+
+    return isOngoing;
+  }
+
   /// Computes the calendar date (year, month, day, startHour, startMin) of the next occurrence
   DateTime? nextOccurrenceDate([DateTime? from]) {
     if (daysOfWeek.isEmpty) return null;
@@ -141,21 +182,63 @@ class ScheduleEntry {
   }
 
   factory ScheduleEntry.fromJson(Map<String, dynamic> json) {
-    final parsedCreatedAt = json['createdAt'] != null
-        ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
-        : DateTime.now();
-    final rawUpdatedAt = json['updatedAt'];
-    final parsedUpdatedAt = rawUpdatedAt is num
-        ? rawUpdatedAt.toInt()
-        : parsedCreatedAt.millisecondsSinceEpoch;
+    DateTime parsedCreatedAt;
+    final rawCreated = json['createdAt'];
+    if (rawCreated == null) {
+      parsedCreatedAt = DateTime.now();
+    } else if (rawCreated is DateTime) {
+      parsedCreatedAt = rawCreated;
+    } else if (rawCreated is String) {
+      parsedCreatedAt = DateTime.tryParse(rawCreated) ?? DateTime.now();
+    } else if (rawCreated is int) {
+      parsedCreatedAt = DateTime.fromMillisecondsSinceEpoch(rawCreated);
+    } else {
+      try {
+        parsedCreatedAt = (rawCreated as dynamic).toDate() as DateTime;
+      } catch (_) {
+        parsedCreatedAt = DateTime.tryParse(rawCreated.toString()) ?? DateTime.now();
+      }
+    }
+
+    int parsedUpdatedAt;
+    final rawUpdated = json['updatedAt'];
+    if (rawUpdated == null) {
+      parsedUpdatedAt = parsedCreatedAt.millisecondsSinceEpoch;
+    } else if (rawUpdated is num) {
+      parsedUpdatedAt = rawUpdated.toInt();
+    } else if (rawUpdated is String) {
+      parsedUpdatedAt = DateTime.tryParse(rawUpdated)?.millisecondsSinceEpoch ??
+          parsedCreatedAt.millisecondsSinceEpoch;
+    } else if (rawUpdated is DateTime) {
+      parsedUpdatedAt = rawUpdated.millisecondsSinceEpoch;
+    } else {
+      try {
+        final dynamic dyn = rawUpdated;
+        if (dyn.millisecondsSinceEpoch is int) {
+          parsedUpdatedAt = dyn.millisecondsSinceEpoch as int;
+        } else if (dyn.toDate is Function) {
+          parsedUpdatedAt = (dyn.toDate() as DateTime).millisecondsSinceEpoch;
+        } else {
+          parsedUpdatedAt = parsedCreatedAt.millisecondsSinceEpoch;
+        }
+      } catch (_) {
+        parsedUpdatedAt = parsedCreatedAt.millisecondsSinceEpoch;
+      }
+    }
+
+    final rawId = json['id'];
+    final finalId = (rawId is String && rawId.isNotEmpty) ? rawId : null;
 
     return ScheduleEntry(
-      id: json['id'] as String?,
+      id: finalId,
       profileId: json['profileId'] as String?,
       title: json['title'] as String? ?? 'Untitled Schedule',
       category: ScheduleCategoryExtension.fromString(json['category'] as String?),
       daysOfWeek: (json['daysOfWeek'] as List<dynamic>?)
-              ?.map((e) => (e as num).toInt())
+              ?.map((e) {
+                if (e is num) return e.toInt();
+                return int.tryParse(e.toString()) ?? 1;
+              })
               .toList() ??
           [],
       startTime: json['startTime'] as String? ?? '08:00',
@@ -165,7 +248,10 @@ class ScheduleEntry {
       notes: json['notes'] as String?,
       colorHex: json['colorHex'] as String?,
       reminders: (json['reminders'] as List<dynamic>?)
-              ?.map((e) => (e as num).toInt())
+              ?.map((e) {
+                if (e is num) return e.toInt();
+                return int.tryParse(e.toString()) ?? 15;
+              })
               .toList() ??
           [15],
       isActive: json['isActive'] as bool? ?? true,

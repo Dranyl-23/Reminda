@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/time_utils.dart';
-import '../../../models/schedule_category.dart';
+import '../../../core/utils/schedule_ui_helpers.dart';
 import '../../../models/schedule_entry.dart';
 import '../../calendar/widgets/weekly_timetable_grid.dart';
 
@@ -19,68 +19,14 @@ class ScheduleCard extends StatelessWidget {
     this.onDelete,
   });
 
-  IconData _getIconForSubject(String title, ScheduleCategory category) {
-    final lower = title.toLowerCase();
-    if (lower.contains('program') || lower.contains('code') || lower.contains('cs') || lower.contains('it') || lower.contains('software')) {
-      return Icons.computer_rounded;
-    }
-    if (lower.contains('math') || lower.contains('calc') || lower.contains('stat') || lower.contains('algebra')) {
-      return Icons.calculate_rounded;
-    }
-    if (lower.contains('data') || lower.contains('db') || lower.contains('sql') || lower.contains('network')) {
-      return Icons.storage_rounded;
-    }
-    if (lower.contains('free') || lower.contains('break') || lower.contains('lunch') || lower.contains('vacant')) {
-      return Icons.coffee_rounded;
-    }
-    if (lower.contains('duty') || lower.contains('medic') || lower.contains('nurs') || lower.contains('hospital')) {
-      return Icons.medical_services_rounded;
-    }
-    return category.icon;
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final palette = TimetableTheme.forTitle(entry.title, isDark);
-    final subjectIcon = _getIconForSubject(entry.title, entry.category);
+    final subjectIcon = ScheduleUIHelpers.getIconForSubject(entry.title, entry.category);
 
-    final now = DateTime.now();
-    final currentWeekday = now.weekday;
-    final currentMinutes = now.hour * 60 + now.minute;
-    final yesterdayDate = now.subtract(const Duration(days: 1));
-    final yesterdayWeekday = currentWeekday == 1 ? 7 : currentWeekday - 1;
     final bool isMutedNext = entry.isNextOccurrenceMuted;
-    bool isOngoing = false;
-
-    // Check: did this shift start YESTERDAY and is still ongoing now?
-    if (!isOngoing &&
-        entry.spansNextDay &&
-        entry.daysOfWeek.contains(yesterdayWeekday) &&
-        !entry.isMutedOnDate(yesterdayDate)) {
-      final endParts = entry.endTime.split(':');
-      if (endParts.length == 2) {
-        final endMin = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
-        if (currentMinutes < endMin) {
-          isOngoing = true;
-        }
-      }
-    }
-
-    // Check: does this shift start today and is currently ongoing?
-    if (!isOngoing &&
-        entry.daysOfWeek.contains(currentWeekday) &&
-        !entry.isMutedOnDate(now)) {
-      final startParts = entry.startTime.split(':');
-      final endParts = entry.endTime.split(':');
-      if (startParts.length == 2 && endParts.length == 2) {
-        final startMin = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
-        int endMin = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
-        if (endMin < startMin) endMin += 24 * 60; // Overnight
-
-        isOngoing = (currentMinutes >= startMin && currentMinutes < endMin);
-      }
-    }
+    final bool isOngoing = entry.isCurrentlyOngoing();
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
@@ -106,9 +52,12 @@ class ScheduleCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
+        child: Semantics(
+          button: true,
+          label: 'View details for ${entry.title}',
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(20),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
@@ -132,12 +81,15 @@ class ScheduleCard extends StatelessWidget {
                 const SizedBox(width: 10),
 
                 // Connected Color Dot
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: isOngoing ? const Color(0xFF10B981) : palette.primary,
-                    shape: BoxShape.circle,
+                Semantics(
+                  label: isOngoing ? 'Status: Currently ongoing' : 'Upcoming',
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: isOngoing ? const Color(0xFF10B981) : palette.primary,
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
 
@@ -271,6 +223,7 @@ class ScheduleCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

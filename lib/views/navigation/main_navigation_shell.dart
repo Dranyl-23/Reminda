@@ -1,4 +1,4 @@
-import '../common/force_update_guard.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
@@ -7,6 +7,7 @@ import '../home/home_screen.dart';
 import '../profile/profile_screen.dart';
 import '../profiles/schedule_profiles_view.dart';
 import '../schedule/widgets/add_schedule_modal_dialog.dart';
+import 'desktop_sidebar.dart';
 
 final navigationIndexProvider = StateProvider<int>((ref) => 0);
 
@@ -21,7 +22,9 @@ class MainNavigationShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = ref.watch(navigationIndexProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final mediaQuery = MediaQuery.of(context);
+    final bottomPadding = mediaQuery.padding.bottom;
+    final isDesktop = mediaQuery.size.width >= 850;
 
     final List<Widget> screens = [
       const HomeScreen(),
@@ -30,13 +33,47 @@ class MainNavigationShell extends ConsumerWidget {
       const ProfileScreen(),
     ];
 
-    return ForceUpdateGuard(
-      child: Scaffold(
+    final desktopShortcuts = {
+      const SingleActivator(LogicalKeyboardKey.keyN, control: true): () => _showAddModal(context),
+      const SingleActivator(LogicalKeyboardKey.digit1, control: true): () => ref.read(navigationIndexProvider.notifier).state = 0,
+      const SingleActivator(LogicalKeyboardKey.digit2, control: true): () => ref.read(navigationIndexProvider.notifier).state = 1,
+      const SingleActivator(LogicalKeyboardKey.digit3, control: true): () => ref.read(navigationIndexProvider.notifier).state = 2,
+      const SingleActivator(LogicalKeyboardKey.digit4, control: true): () => ref.read(navigationIndexProvider.notifier).state = 3,
+    };
+
+    if (isDesktop) {
+      return CallbackShortcuts(
+        bindings: desktopShortcuts,
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(
+            body: Row(
+              children: [
+                DesktopSidebar(
+                  currentIndex: currentIndex,
+                  onIndexChanged: (idx) {
+                    ref.read(navigationIndexProvider.notifier).state = idx;
+                  },
+                ),
+                Expanded(
+                  child: IndexedStack(
+                    index: currentIndex,
+                    children: screens,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
       body: IndexedStack(
         index: currentIndex,
         children: screens,
       ),
-      bottomNavigationBar: Container(
+        bottomNavigationBar: Container(
         height: 68 + bottomPadding,
         padding: EdgeInsets.only(bottom: bottomPadding, top: 4),
         decoration: BoxDecoration(
@@ -132,7 +169,6 @@ class MainNavigationShell extends ConsumerWidget {
             ),
           ],
         ),
-      ),
       ),
     );
   }

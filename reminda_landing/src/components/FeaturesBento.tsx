@@ -1,5 +1,3 @@
-"use client";
-
 import { 
   FileText, 
   Smartphone, 
@@ -9,7 +7,6 @@ import {
   WifiOff,
   Sparkles
 } from "lucide-react";
-import { useMarketingConfig } from "@/context/MarketingConfigContext";
 
 const iconMap: Record<string, any> = {
   FileText,
@@ -20,9 +17,12 @@ const iconMap: Record<string, any> = {
   WifiOff,
 };
 
-export function FeaturesBento() {
-  const { config } = useMarketingConfig();
-  const features = config.features && config.features.length > 0 ? config.features : [];
+interface FeaturesBentoProps {
+  features: Array<{ id: string; title: string; description: string; icon: string }>;
+}
+
+export function FeaturesBento({ features: featuresProp }: FeaturesBentoProps) {
+  const features = featuresProp && featuresProp.length > 0 ? featuresProp : [];
 
   return (
     <div id="features" className="max-w-6xl mx-auto px-5 py-20">

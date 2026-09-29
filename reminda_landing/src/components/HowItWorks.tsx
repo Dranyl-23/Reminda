@@ -1,5 +1,3 @@
-"use client";
-
 import { UploadCloud, Cpu, BellRing } from "lucide-react";
 
 const steps = [

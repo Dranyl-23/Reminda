@@ -126,7 +126,11 @@ class _ProfileScheduleTimetableViewState
     final allSchedules = ref.watch(scheduleListProvider);
     final profiles = ref.watch(profileListProvider);
     final validProfileIds = profiles.map((p) => p.id).toSet();
-    final isTargetActiveOrOnly = widget.profile.isActive || profiles.length <= 1;
+    final liveProfile = profiles.firstWhere(
+      (p) => p.id == widget.profile.id,
+      orElse: () => widget.profile,
+    );
+    final isTargetActiveOrOnly = liveProfile.isActive || profiles.length <= 1;
 
     // Filter schedules for this profile (includes unassigned and orphaned-profileId schedules on the active profile)
     final profileSchedules = allSchedules.where((s) {
@@ -305,65 +309,71 @@ class _ProfileScheduleTimetableViewState
           ),
 
           // Main View
-          Column(
-            children: [
-              // 1. Search Bar
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
-            child: Container(
-              height: 46,
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.surfaceDark : Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: isDark ? AppColors.borderDark : const Color(0xFFE2E8F0),
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 960),
+              child: Column(
+                children: [
+                  // 1. Search Bar
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+                    child: Container(
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.surfaceDark : Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: isDark ? AppColors.borderDark : const Color(0xFFE2E8F0),
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (_) => setState(() {}),
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Search classes, rooms, instructors',
+                          hintStyle: TextStyle(
+                            fontSize: 13,
+                            color: isDark ? AppColors.textSecondaryDark : const Color(0xFF94A3B8),
+                          ),
+                          prefixIcon: const Icon(Icons.search_rounded, size: 20, color: Color(0xFF94A3B8)),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear_rounded, size: 18),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() {});
+                                  },
+                                )
+                              : null,
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
                   ),
-                ],
-              ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (_) => setState(() {}),
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Search classes, rooms, instructors',
-                  hintStyle: TextStyle(
-                    fontSize: 13,
-                    color: isDark ? AppColors.textSecondaryDark : const Color(0xFF94A3B8),
-                  ),
-                  prefixIcon: const Icon(Icons.search_rounded, size: 20, color: Color(0xFF94A3B8)),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear_rounded, size: 18),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() {});
-                          },
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
-            ),
-          ),
 
-          // 2. Weekday Horizontal Strip
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: daysList.map((dayNum) {
+                  // 2. Weekday Horizontal Strip (centered and constrained)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 500),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: daysList.map((dayNum) {
                 final isSelected = _selectedWeekday == dayNum;
                 final isToday = dayNum == currentWeekday;
                 final shortLetter = _getSingleDayLetter(dayNum);
@@ -424,12 +434,14 @@ class _ProfileScheduleTimetableViewState
                     ],
                   ),
                 );
-              }).toList(),
-            ),
-          ),
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ),
 
-          const SizedBox(height: 8),
-          const Divider(height: 1),
+              const SizedBox(height: 8),
+              const Divider(height: 1),
 
           // 3. Timetable Content (Grouped by Day)
           Expanded(
@@ -447,6 +459,8 @@ class _ProfileScheduleTimetableViewState
           ),
         ],
       ),
+    ),
+  ),
     ],
   ),
 );

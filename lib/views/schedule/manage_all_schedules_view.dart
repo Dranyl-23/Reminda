@@ -18,6 +18,79 @@ class _ManageAllSchedulesViewState extends ConsumerState<ManageAllSchedulesView>
   String _searchQuery = '';
   ScheduleCategory? _filterCategory;
 
+  Future<void> _cleanUpDuplicates() async {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.auto_fix_high_rounded, color: Color(0xFF2563EB), size: 22),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Clean Up Duplicates',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'This will analyze your schedules for duplicate or redundant entries occupying the same time slots. It keeps the most detailed entry and removes redundant copies from both local storage and cloud sync.\n\nProceed?',
+          style: TextStyle(
+            fontSize: 13.5,
+            color: isDark ? AppColors.textSecondaryDark : const Color(0xFF475569),
+            height: 1.45,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+          ),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF2563EB),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.cleaning_services_rounded, size: 18),
+            label: const Text('Clean Up'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final removedCount = await ref.read(scheduleListProvider.notifier).deduplicateSchedules();
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          removedCount > 0
+              ? 'Removed $removedCount duplicate schedule${removedCount == 1 ? '' : 's'} successfully!'
+              : 'No duplicate schedules found. Your timetable is clean!',
+        ),
+        backgroundColor: removedCount > 0 ? const Color(0xFF16A34A) : const Color(0xFF64748B),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -45,6 +118,11 @@ class _ManageAllSchedulesViewState extends ConsumerState<ManageAllSchedulesView>
         backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xFFF8FAFC),
         actions: [
           IconButton(
+            icon: const Icon(Icons.auto_fix_high_rounded, size: 22),
+            tooltip: 'Clean Up Duplicates',
+            onPressed: _cleanUpDuplicates,
+          ),
+          IconButton(
             icon: const Icon(Icons.add_rounded, color: Color(0xFF2563EB), size: 26),
             tooltip: 'Add Schedule',
             onPressed: () {
@@ -57,7 +135,10 @@ class _ManageAllSchedulesViewState extends ConsumerState<ManageAllSchedulesView>
         ],
       ),
       body: SafeArea(
-        child: Column(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 880),
+            child: Column(
           children: [
             // Search & Category Filters
             Padding(
@@ -256,7 +337,9 @@ class _ManageAllSchedulesViewState extends ConsumerState<ManageAllSchedulesView>
           ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildFilterChip(String label, ScheduleCategory? category, bool isDark) {

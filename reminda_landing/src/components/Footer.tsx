@@ -1,10 +1,13 @@
-"use client";
+interface FooterProps {
+  copyrightText: string;
+  githubUrl: string;
+  primaryButtonUrl: string;
+  versionBadge: string;
+}
 
-import { useMarketingConfig } from "@/context/MarketingConfigContext";
-
-export function Footer() {
-  const { config } = useMarketingConfig();
-  const { footer, hero } = config;
+export function Footer({ copyrightText, githubUrl, primaryButtonUrl, versionBadge }: FooterProps) {
+  const footer = { copyrightText, githubUrl };
+  const hero = { primaryButtonUrl, versionBadge };
 
   return (
     <footer className="my-20">

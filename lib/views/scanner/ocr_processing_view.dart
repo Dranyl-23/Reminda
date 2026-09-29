@@ -207,9 +207,12 @@ class _OcrProcessingViewState extends ConsumerState<OcrProcessingView>
         backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xFFF8FAFC),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Column(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 580),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: Column(
             children: [
               const SizedBox(height: 10),
 
@@ -341,8 +344,10 @@ class _OcrProcessingViewState extends ConsumerState<OcrProcessingView>
           ),
         ),
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 
   Widget _buildTimelineStep({
     required String title,

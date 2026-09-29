@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../../models/schedule_category.dart';
 import '../../models/schedule_entry.dart';
 import '../config/app_config.dart';
+import '../config/remote_config_service.dart';
 import '../utils/time_utils.dart';
 import 'offline_schedule_parser.dart';
 import 'pdf_text_extractor.dart';
@@ -154,18 +155,27 @@ Critical Extraction Rules:
     }
 
     // 2. Secondary Cloud Engine: Google Gemini Flash (Supports both Digital PDF Text & Native Scanned PDF DataPart)
+    final isGeminiAllowed = RemoteConfigService.instance.geminiOnlineFallbackEnabled;
+    final hasCustomGeminiKey = geminiApiKey != null && geminiApiKey.trim().isNotEmpty;
+
     if (rawJson == null && effectiveGeminiKey.isNotEmpty) {
-      try {
-        debugPrint('ScheduleParserService: [Tier 2] Attempting Google Gemini Multimodal AI...');
-        rawJson = await _parseWithGemini(
-          imageBytes: imageBytes,
-          mimeType: mimeType,
-          apiKey: effectiveGeminiKey,
-          extractedPdfText: hasDigitalPdfText ? extractedPdfText : null,
+      if (!isGeminiAllowed && !hasCustomGeminiKey) {
+        debugPrint(
+          'ScheduleParserService: Gemini Cloud AI Engine Fallback is disabled by Admin Remote Config. Cascading to Tier 3 (OpenRouter)...',
         );
-      } catch (e) {
-        lastError = 'Gemini error: $e';
-        debugPrint('ScheduleParserService: Tier 2 (Gemini) failed: $e. Cascading to Tier 3 (OpenRouter)...');
+      } else {
+        try {
+          debugPrint('ScheduleParserService: [Tier 2] Attempting Google Gemini Multimodal AI...');
+          rawJson = await _parseWithGemini(
+            imageBytes: imageBytes,
+            mimeType: mimeType,
+            apiKey: effectiveGeminiKey,
+            extractedPdfText: hasDigitalPdfText ? extractedPdfText : null,
+          );
+        } catch (e) {
+          lastError = 'Gemini error: $e';
+          debugPrint('ScheduleParserService: Tier 2 (Gemini) failed: $e. Cascading to Tier 3 (OpenRouter)...');
+        }
       }
     }
 

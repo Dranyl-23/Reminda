@@ -301,9 +301,12 @@ class _AiSettingsViewState extends ConsumerState<AiSettingsView> {
         backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xFFF8FAFC),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 880),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Info Banner
@@ -531,8 +534,10 @@ class _AiSettingsViewState extends ConsumerState<AiSettingsView> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 
   Widget _buildSectionHeader(String title, bool isDark) {
     return Padding(

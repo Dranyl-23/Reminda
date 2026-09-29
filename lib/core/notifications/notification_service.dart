@@ -69,17 +69,22 @@ class NotificationService {
       macOS: iosSettings,
     );
 
-    await _notificationsPlugin.initialize(
-      initSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
-        debugPrint('Notification clicked: ${response.payload}');
-      },
-    );
+    if (!kIsWeb && !Platform.isWindows) {
+      try {
+        await _notificationsPlugin.initialize(
+          initSettings,
+          onDidReceiveNotificationResponse: (NotificationResponse response) {
+            debugPrint('Notification clicked: ${response.payload}');
+          },
+        );
+      } catch (e) {
+        debugPrint('NotificationService: Plugin initialize skipped/failed: $e');
+      }
 
-    // 5. Create Android Notification Channels for all custom alarm ringtones
-    final androidImplementation = _notificationsPlugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+      // 5. Create Android Notification Channels for all custom alarm ringtones
+      final androidImplementation = _notificationsPlugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
 
     if (androidImplementation != null) {
       // Create Default System Alarm Channel first (guaranteed fallback)
@@ -131,9 +136,10 @@ class NotificationService {
       }
     }
   }
+}
 
   Future<bool> requestPermissions() async {
-    if (kIsWeb) return false;
+    if (kIsWeb || Platform.isWindows) return false;
 
     if (Platform.isAndroid) {
       final androidImplementation = _notificationsPlugin
@@ -211,6 +217,7 @@ class NotificationService {
     DateTimeComponents? matchDateTimeComponents,
     required String payload,
   }) async {
+    if (kIsWeb || Platform.isWindows) return;
     // Attempt with provided details
     final modes = [
       AndroidScheduleMode.alarmClock,
@@ -294,6 +301,7 @@ class NotificationService {
 
   /// Triggers an immediate test notification with ringtone, vibration, and banner
   Future<void> showTestNotification({String? toneId}) async {
+    if (kIsWeb || Platform.isWindows) return;
     final activeToneId = toneId ?? _getActiveToneId();
     final channelId = 'reminda_alarm_${channelVersion}_$activeToneId';
     final soundResource = activeToneId == 'system_default'
@@ -489,6 +497,7 @@ class NotificationService {
 
   /// Cancels all notifications associated with this schedule entry
   Future<void> cancelEntryReminders(ScheduleEntry entry) async {
+    if (kIsWeb || Platform.isWindows) return;
     for (final dayOfWeek in entry.daysOfWeek) {
       for (final leadMinutes in entry.reminders) {
         final notificationId = _generateNotificationId(entry.id, dayOfWeek, leadMinutes);
@@ -499,6 +508,7 @@ class NotificationService {
 
   /// Reschedules all active entries in the database
   Future<void> rescheduleAll(List<ScheduleEntry> entries) async {
+    if (kIsWeb || Platform.isWindows) return;
     await _notificationsPlugin.cancelAll();
     for (final entry in entries) {
       if (entry.isActive) {
@@ -510,6 +520,7 @@ class NotificationService {
 
   /// Cancel all scheduled alarms and notifications
   Future<void> cancelAllNotifications() async {
+    if (kIsWeb || Platform.isWindows) return;
     await _notificationsPlugin.cancelAll();
   }
 

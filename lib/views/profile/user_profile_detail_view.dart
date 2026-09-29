@@ -785,11 +785,14 @@ class _UserProfileDetailViewState extends ConsumerState<UserProfileDetailView> {
       ),
       body: _isDeleting
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 800),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                   const SizedBox(height: 8),
 
                   // Big Center Avatar (Tappable to change photo)
@@ -1128,6 +1131,8 @@ class _UserProfileDetailViewState extends ConsumerState<UserProfileDetailView> {
                 ],
               ),
             ),
+          ),
+        ),
     );
   }
 

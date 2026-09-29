@@ -3,65 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/utils/schedule_ui_helpers.dart';
 import '../../../core/utils/time_utils.dart';
-import '../../../models/schedule_category.dart';
 import '../../../providers/filter_providers.dart';
 import '../../../providers/user_setup_provider.dart';
 import '../schedule_detail_view.dart';
 
-class UpcomingBanner extends ConsumerStatefulWidget {
+class UpcomingBanner extends ConsumerWidget {
   const UpcomingBanner({super.key});
 
-  @override
-  ConsumerState<UpcomingBanner> createState() => _UpcomingBannerState();
-}
-
-class _UpcomingBannerState extends ConsumerState<UpcomingBanner> {
-  Timer? _tickerTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    // Ticks every second for real-time countdown and progress updates
-    _tickerTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _tickerTimer?.cancel();
-    super.dispose();
-  }
-
-  IconData _getIconForSubject(String title, ScheduleCategory category) {
-    final lower = title.toLowerCase();
-    if (lower.contains('program') ||
-        lower.contains('code') ||
-        lower.contains('cs') ||
-        lower.contains('it')) {
-      return Icons.computer_rounded;
-    }
-    if (lower.contains('math') ||
-        lower.contains('calc') ||
-        lower.contains('stat')) {
-      return Icons.calculate_rounded;
-    }
-    if (lower.contains('data') ||
-        lower.contains('db') ||
-        lower.contains('sql')) {
-      return Icons.storage_rounded;
-    }
-    if (lower.contains('duty') ||
-        lower.contains('medic') ||
-        lower.contains('nurs')) {
-      return Icons.medical_services_rounded;
-    }
-    return category.icon;
-  }
-
   /// Calculates real-time countdown string and progress percentage
-  Map<String, dynamic> _computeCountdown(
+  static Map<String, dynamic> computeCountdown(
     String startTimeStr,
     String endTimeStr,
     bool isOngoing,
@@ -171,7 +123,7 @@ class _UpcomingBannerState extends ConsumerState<UpcomingBanner> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final liveStatus = ref.watch(activeOrUpcomingScheduleProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -181,29 +133,8 @@ class _UpcomingBannerState extends ConsumerState<UpcomingBanner> {
       if (nextUpcoming != null) {
         final entry = nextUpcoming.entry;
         final targetDate = nextUpcoming.targetDateTime;
-        final diff = targetDate.difference(DateTime.now());
 
-        String countdownText;
-        if (diff.isNegative) {
-          countdownText = 'Starting now';
-        } else {
-          final days = diff.inDays;
-          final hours = diff.inHours % 24;
-          final minutes = diff.inMinutes % 60;
-          final seconds = diff.inSeconds % 60;
-
-          if (days > 0) {
-            countdownText = 'Starts in ${days}d ${hours}h';
-          } else if (hours > 0) {
-            countdownText = 'Starts in ${hours}h ${minutes}m ${seconds}s';
-          } else if (minutes > 0) {
-            countdownText = 'Starts in ${minutes}m ${seconds}s';
-          } else {
-            countdownText = 'Starts in ${seconds}s';
-          }
-        }
-
-        final subjectIcon = _getIconForSubject(entry.title, entry.category);
+        final subjectIcon = ScheduleUIHelpers.getIconForSubject(entry.title, entry.category);
         final dayLabel = nextUpcoming.isToday
             ? 'Today'
             : (nextUpcoming.daysDifference == 1
@@ -260,8 +191,11 @@ class _UpcomingBannerState extends ConsumerState<UpcomingBanner> {
           ),
           child: Material(
             color: Colors.transparent,
-            child: InkWell(
-              onTap: () {
+            child: Semantics(
+              button: true,
+              label: 'View schedule details for ${entry.title}',
+              child: InkWell(
+                onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => ScheduleDetailView(entry: entry)),
@@ -314,33 +248,7 @@ class _UpcomingBannerState extends ConsumerState<UpcomingBanner> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.25),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.timer_outlined,
-                                size: 12.5,
-                                color: Color(0xFF93C5FD),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                countdownText,
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                  fontFeatures: [FontFeature.tabularFigures()],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        _NextUpcomingCountdownTicker(targetDate: targetDate),
                       ],
                     ),
 
@@ -434,8 +342,9 @@ class _UpcomingBannerState extends ConsumerState<UpcomingBanner> {
               ),
             ),
           ),
-        );
-      }
+        ),
+      );
+    }
 
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -503,10 +412,7 @@ class _UpcomingBannerState extends ConsumerState<UpcomingBanner> {
 
     final entry = liveStatus.entry;
     final isOngoing = liveStatus.isOngoing;
-    final countdownData = _computeCountdown(entry.startTime, entry.endTime, isOngoing);
-    final countdownText = countdownData['text'] as String;
-    final progress = countdownData['progress'] as double;
-    final subjectIcon = _getIconForSubject(entry.title, entry.category);
+    final subjectIcon = ScheduleUIHelpers.getIconForSubject(entry.title, entry.category);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -539,8 +445,11 @@ class _UpcomingBannerState extends ConsumerState<UpcomingBanner> {
       ),
       child: Material(
         color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
+        child: Semantics(
+          button: true,
+          label: 'View schedule details for ${entry.title}',
+          child: InkWell(
+            onTap: () {
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -589,40 +498,10 @@ class _UpcomingBannerState extends ConsumerState<UpcomingBanner> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.22),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.25),
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            isOngoing
-                                ? Icons.timer_outlined
-                                : Icons.hourglass_top_rounded,
-                            size: 13,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            countdownText,
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
+                    _ActiveCountdownTicker(
+                      startTime: entry.startTime,
+                      endTime: entry.endTime,
+                      isOngoing: isOngoing,
                     ),
                   ],
                 ),
@@ -723,38 +602,9 @@ class _UpcomingBannerState extends ConsumerState<UpcomingBanner> {
                 // In-Progress Animated Duration Progress Bar
                 if (isOngoing) ...[
                   const SizedBox(height: 14),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 5,
-                      backgroundColor: Colors.white.withValues(alpha: 0.25),
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${(progress * 100).toInt()}% completed',
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white70,
-                        ),
-                      ),
-                      Text(
-                        'Ends at ${TimeUtils.formatTo12Hour(entry.endTime)}',
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
+                  _ProgressBarTicker(
+                    startTime: entry.startTime,
+                    endTime: entry.endTime,
                   ),
                 ],
               ],
@@ -762,6 +612,250 @@ class _UpcomingBannerState extends ConsumerState<UpcomingBanner> {
           ),
         ),
       ),
+    ),
+  );
+}
+}
+
+// ---------------------------------------------------------------------------
+// Isolated ticker widgets — only these rebuild every second, not the banner.
+// ---------------------------------------------------------------------------
+
+/// Ticks every second to display a countdown to a future [targetDate].
+/// Used for the "next upcoming across all days" banner variant.
+class _NextUpcomingCountdownTicker extends StatefulWidget {
+  final DateTime targetDate;
+  const _NextUpcomingCountdownTicker({required this.targetDate});
+
+  @override
+  State<_NextUpcomingCountdownTicker> createState() =>
+      _NextUpcomingCountdownTickerState();
+}
+
+class _NextUpcomingCountdownTickerState
+    extends State<_NextUpcomingCountdownTicker> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final diff = widget.targetDate.difference(DateTime.now());
+
+    String countdownText;
+    if (diff.isNegative) {
+      countdownText = 'Starting now';
+    } else {
+      final days = diff.inDays;
+      final hours = diff.inHours % 24;
+      final minutes = diff.inMinutes % 60;
+      final seconds = diff.inSeconds % 60;
+
+      if (days > 0) {
+        countdownText = 'Starts in ${days}d ${hours}h';
+      } else if (hours > 0) {
+        countdownText = 'Starts in ${hours}h ${minutes}m ${seconds}s';
+      } else if (minutes > 0) {
+        countdownText = 'Starts in ${minutes}m ${seconds}s';
+      } else {
+        countdownText = 'Starts in ${seconds}s';
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.timer_outlined,
+            size: 12.5,
+            color: Color(0xFF93C5FD),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            countdownText,
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
+
+/// Ticks every second to show the countdown pill for active/ongoing schedules.
+class _ActiveCountdownTicker extends StatefulWidget {
+  final String startTime;
+  final String endTime;
+  final bool isOngoing;
+
+  const _ActiveCountdownTicker({
+    required this.startTime,
+    required this.endTime,
+    required this.isOngoing,
+  });
+
+  @override
+  State<_ActiveCountdownTicker> createState() => _ActiveCountdownTickerState();
+}
+
+class _ActiveCountdownTickerState extends State<_ActiveCountdownTicker> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = UpcomingBanner.computeCountdown(
+      widget.startTime,
+      widget.endTime,
+      widget.isOngoing,
+    );
+    final countdownText = data['text'] as String;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.25),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            widget.isOngoing
+                ? Icons.timer_outlined
+                : Icons.hourglass_top_rounded,
+            size: 13,
+            color: Colors.white,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            countdownText,
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Ticks every second to update the progress bar for ongoing schedules.
+class _ProgressBarTicker extends StatefulWidget {
+  final String startTime;
+  final String endTime;
+
+  const _ProgressBarTicker({
+    required this.startTime,
+    required this.endTime,
+  });
+
+  @override
+  State<_ProgressBarTicker> createState() => _ProgressBarTickerState();
+}
+
+class _ProgressBarTickerState extends State<_ProgressBarTicker> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = UpcomingBanner.computeCountdown(
+      widget.startTime,
+      widget.endTime,
+      true, // always ongoing when this widget is shown
+    );
+    final progress = data['progress'] as double;
+
+    return Column(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 5,
+            backgroundColor: Colors.white.withValues(alpha: 0.25),
+            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+          ),
+        ),
+        const SizedBox(height: 5),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '${(progress * 100).toInt()}% completed',
+              style: const TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: Colors.white70,
+              ),
+            ),
+            Text(
+              'Ends at ${TimeUtils.formatTo12Hour(widget.endTime)}',
+              style: const TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+

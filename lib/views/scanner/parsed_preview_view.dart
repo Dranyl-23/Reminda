@@ -134,10 +134,13 @@ class _ParsedPreviewViewState extends ConsumerState<ParsedPreviewView> {
         title: const Text('Parsed Schedule'),
       ),
       bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: SizedBox(
-            width: double.infinity,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 880),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SizedBox(
+                width: double.infinity,
             height: 52,
             child: ElevatedButton(
               onPressed: _items.isEmpty ? null : _saveAll,
@@ -156,7 +159,9 @@ class _ParsedPreviewViewState extends ConsumerState<ParsedPreviewView> {
           ),
         ),
       ),
-      body: _items.isEmpty
+    ),
+  ),
+  body: _items.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -178,8 +183,11 @@ class _ParsedPreviewViewState extends ConsumerState<ParsedPreviewView> {
                 ],
               ),
             )
-          : ListView(
-              padding: const EdgeInsets.all(20),
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 880),
+                child: ListView(
+                  padding: const EdgeInsets.all(20),
               children: [
                 Text(
                   'Review and edit the extracted entries.',
@@ -285,6 +293,8 @@ class _ParsedPreviewViewState extends ConsumerState<ParsedPreviewView> {
                 }),
               ],
             ),
+          ),
+        ),
     );
   }
 }

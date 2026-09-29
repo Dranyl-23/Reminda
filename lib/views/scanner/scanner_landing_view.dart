@@ -124,9 +124,12 @@ class _ScannerLandingViewState extends ConsumerState<ScannerLandingView> {
         backgroundColor: isDark ? AppColors.backgroundDark : const Color(0xFFF8FAFC),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          child: Column(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 580),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              child: Column(
             children: [
               const SizedBox(height: 10),
 
@@ -348,8 +351,10 @@ class _ScannerLandingViewState extends ConsumerState<ScannerLandingView> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 
   Widget _buildTipBullet(String text, bool isDark) {
     return Padding(

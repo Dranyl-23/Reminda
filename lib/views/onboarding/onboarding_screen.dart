@@ -104,119 +104,125 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ],
 
           SafeArea(
-            child: Column(
-              children: [
-                // 3-Step Swipeable Carousel
-                Expanded(
-                  child: PageView(
-                    controller: _pageController,
-                    physics: const BouncingScrollPhysics(),
-                    onPageChanged: (index) {
-                      setState(() => _currentPage = index);
-                    },
-                    children: [
-                      // Slide 1: Scan & Import
-                      _buildSlide(
-                        slideIndex: 0,
-                        titlePrefix: 'Your Schedule,\n',
-                        titleAccent: 'Smarter.',
-                        subtitle:
-                            'Import, organize, and get reminded\nbefore every class, shift, or duty.',
-                        heroWidget: _buildMascotHero(isDark, _currentPage == 0),
-                        cards: [
-                          _buildModernCard(
-                            icon: Icons.calendar_month_rounded,
-                            title: 'Scan & Import',
-                            subtitle: 'Upload a screenshot of your schedule',
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Column(
+                  children: [
+                    // 3-Step Swipeable Carousel
+                    Expanded(
+                      child: PageView(
+                        controller: _pageController,
+                        physics: const BouncingScrollPhysics(),
+                        onPageChanged: (index) {
+                          setState(() => _currentPage = index);
+                        },
+                        children: [
+                          // Slide 1: Scan & Import
+                          _buildSlide(
+                            slideIndex: 0,
+                            titlePrefix: 'Your Schedule,\n',
+                            titleAccent: 'Smarter.',
+                            subtitle:
+                                'Import, organize, and get reminded\nbefore every class, shift, or duty.',
+                            heroWidget: _buildMascotHero(isDark, _currentPage == 0),
+                            cards: [
+                              _buildModernCard(
+                                icon: Icons.calendar_month_rounded,
+                                title: 'Scan & Import',
+                                subtitle: 'Upload a screenshot of your schedule',
+                                isDark: isDark,
+                              ),
+                              _buildModernCard(
+                                icon: Icons.notifications_rounded,
+                                title: 'Get Reminded',
+                                subtitle: 'Receive smart reminders on time',
+                                isDark: isDark,
+                              ),
+                              _buildModernCard(
+                                icon: Icons.cloud_done_rounded,
+                                title: 'Stay Organized',
+                                subtitle: 'All your schedules in one place',
+                                isDark: isDark,
+                              ),
+                            ],
                             isDark: isDark,
                           ),
-                          _buildModernCard(
-                            icon: Icons.notifications_rounded,
-                            title: 'Get Reminded',
-                            subtitle: 'Receive smart reminders on time',
+
+                          // Slide 2: Let's set up your preferences
+                          _buildSlide(
+                            slideIndex: 1,
+                            titlePrefix: 'Let’s set up\n',
+                            titleAccent: 'your preferences.',
+                            subtitle:
+                                'Tell us a bit about your schedule\nso we can personalize your experience.',
+                            heroWidget: _buildMascotThinkingHero(isDark, _currentPage == 1),
+                            cards: [
+                              _buildModernCard(
+                                icon: Icons.calendar_month_rounded,
+                                title: 'Class Schedule',
+                                subtitle: 'Add your classes and\nset your timetable',
+                                isDark: isDark,
+                              ),
+                              _buildModernCard(
+                                icon: Icons.access_time_rounded,
+                                title: 'Availability',
+                                subtitle: 'Set your free time\nand busy hours',
+                                isDark: isDark,
+                              ),
+                              _buildModernCard(
+                                icon: Icons.notifications_none_rounded,
+                                title: 'Reminders',
+                                subtitle: 'Choose how and when\nyou want to be reminded',
+                                isDark: isDark,
+                              ),
+                            ],
                             isDark: isDark,
                           ),
-                          _buildModernCard(
-                            icon: Icons.cloud_done_rounded,
-                            title: 'Stay Organized',
-                            subtitle: 'All your schedules in one place',
+
+                          // Slide 3: Multi-Schedule Profiles & Sync
+                          _buildSlide(
+                            slideIndex: 2,
+                            titlePrefix: 'All Your Schedules,\n',
+                            titleAccent: 'One Single App.',
+                            subtitle:
+                                'Separate your School, Part-Time Job,\nand Duty Rosters neatly in one dashboard.',
+                            heroWidget: _buildThumbsUpHero(isDark, _currentPage == 2),
+                            cards: [
+                              _buildModernCard(
+                                icon: Icons.school_rounded,
+                                title: 'School & Classes',
+                                subtitle: 'Room numbers, profs, and breaks',
+                                isDark: isDark,
+                              ),
+                              _buildModernCard(
+                                icon: Icons.work_rounded,
+                                title: 'Job & Work Shifts',
+                                subtitle: 'Morning, evening, & weekend shifts',
+                                isDark: isDark,
+                              ),
+                              _buildModernCard(
+                                icon: Icons.shield_rounded,
+                                title: 'Duty Rosters',
+                                subtitle: 'Overnight span & shift rotations',
+                                isDark: isDark,
+                              ),
+                            ],
                             isDark: isDark,
                           ),
                         ],
-                        isDark: isDark,
                       ),
+                    ),
 
-                      // Slide 2: Let's set up your preferences
-                      _buildSlide(
-                        slideIndex: 1,
-                        titlePrefix: 'Let’s set up\n',
-                        titleAccent: 'your preferences.',
-                        subtitle:
-                            'Tell us a bit about your schedule\nso we can personalize your experience.',
-                        heroWidget: _buildMascotThinkingHero(isDark, _currentPage == 1),
-                        cards: [
-                          _buildModernCard(
-                            icon: Icons.calendar_month_rounded,
-                            title: 'Class Schedule',
-                            subtitle: 'Add your classes and\nset your timetable',
-                            isDark: isDark,
-                          ),
-                          _buildModernCard(
-                            icon: Icons.access_time_rounded,
-                            title: 'Availability',
-                            subtitle: 'Set your free time\nand busy hours',
-                            isDark: isDark,
-                          ),
-                          _buildModernCard(
-                            icon: Icons.notifications_none_rounded,
-                            title: 'Reminders',
-                            subtitle: 'Choose how and when\nyou want to be reminded',
-                            isDark: isDark,
-                          ),
-                        ],
-                        isDark: isDark,
-                      ),
-
-                      // Slide 3: Multi-Schedule Profiles & Sync
-                      _buildSlide(
-                        slideIndex: 2,
-                        titlePrefix: 'All Your Schedules,\n',
-                        titleAccent: 'One Single App.',
-                        subtitle:
-                            'Separate your School, Part-Time Job,\nand Duty Rosters neatly in one dashboard.',
-                        heroWidget: _buildThumbsUpHero(isDark, _currentPage == 2),
-                        cards: [
-                          _buildModernCard(
-                            icon: Icons.school_rounded,
-                            title: 'School & Classes',
-                            subtitle: 'Room numbers, profs, and breaks',
-                            isDark: isDark,
-                          ),
-                          _buildModernCard(
-                            icon: Icons.work_rounded,
-                            title: 'Job & Work Shifts',
-                            subtitle: 'Morning, evening, & weekend shifts',
-                            isDark: isDark,
-                          ),
-                          _buildModernCard(
-                            icon: Icons.shield_rounded,
-                            title: 'Duty Rosters',
-                            subtitle: 'Overnight span & shift rotations',
-                            isDark: isDark,
-                          ),
-                        ],
-                        isDark: isDark,
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Bottom Controls (Dots + Next/Get Started + Skip)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24.0, 4.0, 24.0, 10.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
+                    // Bottom Controls (Dots + Next/Get Started + Skip)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24.0, 4.0, 24.0, 10.0),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 420),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
                       // Animated 3-Dots Page Indicator
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -353,13 +359,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    );
-  }
+    ),
+  ),
+],
+),
+);
+}
 
   Widget _buildSlide({
     required int slideIndex,
@@ -372,11 +382,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }) {
     final bool isCurrent = _currentPage == slideIndex;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
           const SizedBox(height: 10),
 
           // Header Title with Dynamic Entrance
@@ -463,8 +476,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           const SizedBox(height: 6),
         ],
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 
   // Slide 1 Hero: Mascot
   Widget _buildMascotHero(bool isDark, bool isCurrent) {

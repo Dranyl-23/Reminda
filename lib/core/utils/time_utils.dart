@@ -11,6 +11,14 @@ class TimeUtils {
     'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
   ];
 
+  /// Returns a time-of-day greeting string.
+  static String getGreeting([DateTime? now]) {
+    final hour = (now ?? DateTime.now()).hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
   /// Returns 3-letter abbreviation (1 = Mon, 7 = Sun)
   static String getWeekdayShort(int day) {
     if (day >= 1 && day <= 7) {

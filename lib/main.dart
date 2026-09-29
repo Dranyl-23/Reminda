@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,7 +31,24 @@ void main() async {
 
   // 3. Load Environment Variables (.env)
   try {
-    await dotenv.load(fileName: ".env");
+    if (!kIsWeb) {
+      File envFile = File('.env');
+      if (!envFile.existsSync()) {
+        final exeDir = File(Platform.resolvedExecutable).parent;
+        final candidate = File('${exeDir.path}${Platform.pathSeparator}.env');
+        if (candidate.existsSync()) {
+          envFile = candidate;
+        }
+      }
+      if (envFile.existsSync()) {
+        final content = envFile.readAsStringSync();
+        dotenv.testLoad(fileInput: content);
+      } else {
+        await dotenv.load(fileName: ".env");
+      }
+    } else {
+      await dotenv.load(fileName: ".env");
+    }
   } catch (e) {
     debugPrint('Could not load .env: $e');
   }

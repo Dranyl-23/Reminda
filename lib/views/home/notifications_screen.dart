@@ -121,7 +121,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         ],
       ),
       body: SafeArea(
-        child: Column(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 880),
+            child: Column(
           children: [
             // Filter Pills
             if (notifications.isNotEmpty)
@@ -330,8 +333,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 
   Widget _buildFilterChip(String label, NotificationType? type, bool isDark) {
     final isSelected = _selectedFilter == type;

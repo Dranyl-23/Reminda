@@ -1,5 +1,3 @@
-"use client";
-
 import { Smartphone, Database, FileText, Cpu, Sparkles } from "lucide-react";
 
 export function LogosStrip() {
