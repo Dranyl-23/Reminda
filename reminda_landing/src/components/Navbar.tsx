@@ -125,15 +125,7 @@ export function Navbar() {
               </li>
             </ul>
 
-            <div className="lg:hidden flex items-center mt-3 gap-4">
-              <a
-                href={hero.secondaryButtonUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-sm text-center transition focus-visible:ring-2 ring-offset-2 ring-gray-200 w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-slate-800 border-2 border-transparent text-sm"
-              >
-                {hero.secondaryButtonText}
-              </a>
+            <div className="lg:hidden flex items-center mt-3">
               <a
                 href={hero.primaryButtonUrl}
                 target="_blank"
@@ -147,14 +139,6 @@ export function Navbar() {
 
           {/* Right CTA */}
           <div className="hidden lg:flex items-center gap-4 text-sm">
-            <a
-              href={hero.secondaryButtonUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gray-600 hover:text-gray-900"
-            >
-              {hero.secondaryButtonText}
-            </a>
             <a
               href={hero.primaryButtonUrl}
               target="_blank"
