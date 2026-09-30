@@ -29,14 +29,14 @@ export function DownloadHub() {
         </p>
 
         {/* Dual Platform Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 mt-8 items-center justify-center w-full max-w-lg">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8 w-full max-w-2xl mx-auto">
           <a
             href={windowsDownloadUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-sm text-center transition focus-visible:ring-2 ring-offset-2 ring-gray-200 px-5 py-3 bg-white text-black hover:bg-gray-100 border-2 border-transparent font-semibold text-sm flex items-center justify-center gap-2 w-full sm:w-auto shadow-sm"
+            className="h-12 px-5 rounded-lg text-center transition-all duration-200 focus-visible:ring-2 ring-offset-2 ring-white bg-white text-slate-950 hover:bg-slate-100 hover:shadow-md border border-white font-semibold text-sm flex items-center justify-center gap-2.5 w-full sm:w-auto whitespace-nowrap active:scale-[0.98]"
           >
-            <WindowsIcon className="w-4 h-4 text-blue-600" />
+            <WindowsIcon className="w-4 h-4 text-blue-600 shrink-0" />
             <span>Download for Windows (x64)</span>
           </a>
 
@@ -44,17 +44,18 @@ export function DownloadHub() {
             href={universalApkUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-sm text-center transition focus-visible:ring-2 ring-offset-2 ring-gray-200 px-5 py-3 bg-slate-900 border border-slate-700 hover:border-slate-500 text-white font-semibold text-sm flex items-center justify-center gap-2 w-full sm:w-auto"
+            className="h-12 px-5 rounded-lg text-center transition-all duration-200 focus-visible:ring-2 ring-offset-2 ring-emerald-400 px-5 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 hover:border-slate-500 text-white font-semibold text-sm flex items-center justify-center gap-2.5 w-full sm:w-auto whitespace-nowrap active:scale-[0.98]"
           >
-            <AndroidIcon className="w-4 h-4 text-emerald-400" />
+            <AndroidIcon className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>Download Android APK</span>
           </a>
 
           <button
+            type="button"
             onClick={() => setShowQr(!showQr)}
-            className="rounded-sm text-center transition px-4 py-3 border border-slate-800 hover:border-slate-600 text-slate-300 hover:text-white font-medium text-sm flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto"
+            className="h-12 px-4 rounded-lg text-center transition-all duration-200 bg-slate-950/60 hover:bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white font-medium text-sm flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto whitespace-nowrap active:scale-[0.98]"
           >
-            <QrCode className="w-4 h-4 text-slate-400" />
+            <QrCode className="w-4 h-4 text-slate-400 shrink-0" />
             <span>{showQr ? "Hide QR" : "Scan QR"}</span>
           </button>
         </div>
