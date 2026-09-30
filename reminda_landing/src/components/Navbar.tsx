@@ -1,13 +1,36 @@
 "use client";
 
-import { useState } from "react";
-import { Download, Menu, X, ArrowRight, Megaphone } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Download, Menu, X, ArrowRight, ChevronDown } from "lucide-react";
 import { useMarketingConfig } from "@/context/MarketingConfigContext";
+import { WindowsIcon, AndroidIcon } from "@/components/icons";
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [downloadOpen, setDownloadOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const { config } = useMarketingConfig();
-  const { announcement, hero } = config;
+  const { announcement, hero, downloadHub } = config;
+
+  // Close dropdown on click outside or escape key
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDownloadOpen(false);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setDownloadOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   return (
     <>
@@ -112,9 +135,8 @@ export function Navbar() {
               </li>
               <li>
                 <a
-                  href={hero.primaryButtonUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="#download"
+                  onClick={() => setMobileMenuOpen(false)}
                   className="flex lg:px-3 py-2 items-center text-gray-600 hover:text-gray-900"
                 >
                   <span>Release</span>
@@ -125,28 +147,114 @@ export function Navbar() {
               </li>
             </ul>
 
-            <div className="lg:hidden flex items-center mt-3">
+            {/* Mobile Drawer Platform CTAs */}
+            <div className="lg:hidden flex flex-col gap-2 mt-4 pt-3 border-t border-slate-100">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Download Reminda
+              </span>
               <a
-                href={hero.primaryButtonUrl}
+                href={downloadHub.universalApkUrl || "https://github.com/Dranyl-23/Reminda/releases/latest/download/app-arm64-v8a-release.apk"}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-sm text-center transition focus-visible:ring-2 ring-offset-2 ring-gray-200 w-full px-4 py-2 bg-black text-white hover:bg-gray-800 border-2 border-transparent text-sm font-medium"
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-sm text-center transition focus-visible:ring-2 ring-offset-2 ring-gray-200 w-full px-4 py-2.5 bg-black text-white hover:bg-gray-800 border-2 border-transparent text-sm font-medium flex items-center justify-center gap-2"
               >
-                {hero.primaryButtonText}
+                <AndroidIcon className="w-4 h-4 text-emerald-400" />
+                <span>Download Android APK</span>
+              </a>
+
+              <a
+                href={downloadHub.windowsUrl || "https://github.com/Dranyl-23/Reminda/releases/latest/download/reminda-windows-x64.zip"}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-sm text-center transition focus-visible:ring-2 ring-offset-2 ring-gray-200 w-full px-4 py-2 bg-slate-50 text-slate-800 hover:bg-slate-100 border border-slate-200 text-xs font-medium flex items-center justify-center gap-2"
+              >
+                <WindowsIcon className="w-3.5 h-3.5 text-blue-600" />
+                <span>Download for Windows PC (x64)</span>
               </a>
             </div>
           </nav>
 
-          {/* Right CTA */}
-          <div className="hidden lg:flex items-center gap-4 text-sm">
-            <a
-              href={hero.primaryButtonUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-sm text-center transition focus-visible:ring-2 ring-offset-2 ring-gray-200 px-4 py-2 bg-black text-white hover:bg-gray-800 border-2 border-transparent font-medium"
+          {/* Desktop Right CTA: Dropdown for PC or Mobile */}
+          <div className="hidden lg:relative lg:flex items-center gap-4 text-sm" ref={dropdownRef}>
+            <button
+              onClick={() => setDownloadOpen((prev) => !prev)}
+              className="rounded-sm text-center transition focus-visible:ring-2 ring-offset-2 ring-gray-200 px-4 py-2 bg-black text-white hover:bg-gray-800 border-2 border-transparent font-medium flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              aria-expanded={downloadOpen}
             >
-              Download APK
-            </a>
+              <Download className="w-4 h-4" />
+              <span>Download</span>
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${downloadOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {downloadOpen && (
+              <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-50 animate-fade-in">
+                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Select Platform
+                </div>
+
+                {/* Windows Option */}
+                <a
+                  href={downloadHub.windowsUrl || "https://github.com/Dranyl-23/Reminda/releases/latest/download/reminda-windows-x64.zip"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setDownloadOpen(false)}
+                  className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-slate-50 transition-colors group"
+                >
+                  <div className="p-2 rounded-md bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors shrink-0">
+                    <WindowsIcon className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-slate-800 text-xs group-hover:text-blue-600 transition-colors">
+                        Windows Desktop
+                      </span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                        {downloadHub.windowsSize || "~18 MB"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Windows 10 / 11 (64-bit)</p>
+                  </div>
+                </a>
+
+                {/* Android Option */}
+                <a
+                  href={downloadHub.universalApkUrl || "https://github.com/Dranyl-23/Reminda/releases/latest/download/app-arm64-v8a-release.apk"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setDownloadOpen(false)}
+                  className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-slate-50 transition-colors group"
+                >
+                  <div className="p-2 rounded-md bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors shrink-0">
+                    <AndroidIcon className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-slate-800 text-xs group-hover:text-emerald-600 transition-colors">
+                        Android Mobile
+                      </span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                        {downloadHub.universalApkSize || "~58 MB"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">APK &bull; Android 8.0 to 15</p>
+                  </div>
+                </a>
+
+                {/* Footer link to Hub */}
+                <div className="border-t border-slate-100 mt-1 pt-1.5 px-2">
+                  <a
+                    href="#download"
+                    onClick={() => setDownloadOpen(false)}
+                    className="text-[11px] font-medium text-slate-500 hover:text-slate-800 flex items-center justify-between py-1"
+                  >
+                    <span>View all packages &amp; QR code</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+            )}
           </div>
 
         </header>

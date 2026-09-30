@@ -1,4 +1,4 @@
-﻿import urllib.request
+import urllib.request
 import os
 
 headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
@@ -10,7 +10,8 @@ verified_urls = {
     'usep.png': 'https://www.usep.edu.ph/wp-content/uploads/2019/04/usep-logo.png',
 }
 
-out_dir = r'c:\Users\Alfie Lynard\OneDrive\Desktop\archive\Scheduler\assets\logos'
+out_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'assets', 'logos'))
+os.makedirs(out_dir, exist_ok=True)
 
 for fname, url in verified_urls.items():
     fpath = os.path.join(out_dir, fname)

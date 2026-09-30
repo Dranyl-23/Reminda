@@ -1,9 +1,9 @@
-﻿import urllib.request
+import urllib.request
 import os
 import time
 
 headers = {
-    'User-Agent': 'SchedlyAcademicApp/1.0 (https://schedly.app; info@schedly.app) PythonUrllib/3.10'
+    'User-Agent': 'RemindaAcademicApp/1.0 (https://getreminda.com; info@getreminda.com) PythonUrllib/3.10'
 }
 
 wiki_files = {
@@ -23,7 +23,7 @@ wiki_files = {
     'deped.png': 'https://commons.wikimedia.org/wiki/Special:FilePath/Department_of_Education_(DepEd).svg',
 }
 
-out_dir = r'c:\Users\Alfie Lynard\OneDrive\Desktop\archive\Scheduler\assets\logos'
+out_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'assets', 'logos'))
 os.makedirs(out_dir, exist_ok=True)
 
 for fname, url in wiki_files.items():

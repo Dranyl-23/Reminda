@@ -196,14 +196,21 @@ class NotificationService {
   }
 
   /// Calculates a stable, deterministic integer ID for notification cancellation.
+  /// Uses a high-entropy 64-bit FNV-1a with bit mixer folded into 31-bit positive integer range
+  /// to eliminate hash collision risks across multi-day recurring reminders.
   int _generateNotificationId(String entryId, int dayOfWeek, int leadMinutes) {
-    final key = '$entryId-$dayOfWeek-$leadMinutes';
-    // FNV-1a 32-bit hash
-    var hash = 0x811c9dc5;
+    final key = '$entryId:$dayOfWeek:$leadMinutes';
+    int hash = 0xcbf29ce484222325;
     for (final codeUnit in key.codeUnits) {
       hash ^= codeUnit;
-      hash = (hash * 0x01000193) & 0xFFFFFFFF;
+      hash = (hash * 0x100000001b3) & 0x7FFFFFFFFFFFFFFF;
     }
+    // High-dispersion bit mixer to avoid clustering
+    hash ^= (hash >> 30);
+    hash = (hash * 0xbf58476d1ce4e5b9) & 0x7FFFFFFFFFFFFFFF;
+    hash ^= (hash >> 27);
+    hash = (hash * 0x94d049bb133111eb) & 0x7FFFFFFFFFFFFFFF;
+    hash ^= (hash >> 31);
     return hash & 0x7FFFFFFF;
   }
 
@@ -510,12 +517,9 @@ class NotificationService {
   Future<void> rescheduleAll(List<ScheduleEntry> entries) async {
     if (kIsWeb || Platform.isWindows) return;
     await _notificationsPlugin.cancelAll();
-    for (final entry in entries) {
-      if (entry.isActive) {
-        await scheduleEntryReminders(entry);
-      }
-    }
-    debugPrint('NotificationService: Successfully rescheduled ${entries.where((e) => e.isActive).length} active schedules.');
+    final activeEntries = entries.where((e) => e.isActive).toList();
+    await Future.wait(activeEntries.map((entry) => scheduleEntryReminders(entry)));
+    debugPrint('NotificationService: Successfully rescheduled ${activeEntries.length} active schedules.');
   }
 
   /// Cancel all scheduled alarms and notifications

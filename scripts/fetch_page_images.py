@@ -1,9 +1,10 @@
-﻿import urllib.request
+import urllib.request
 import json
 import os
 
-headers = {'User-Agent': 'SchedlyAcademicApp/1.0 (contact@schedly.app)'}
-out_dir = r'c:\Users\Alfie Lynard\OneDrive\Desktop\archive\Scheduler\assets\logos'
+headers = {'User-Agent': 'RemindaAcademicApp/1.0 (contact@getreminda.com)'}
+out_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'assets', 'logos'))
+os.makedirs(out_dir, exist_ok=True)
 
 queries = {
     'hcdc.png': 'Holy Cross of Davao College',

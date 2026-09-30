@@ -4,7 +4,7 @@ export const defaultMarketingConfig: MarketingSiteConfig = {
   announcement: {
     enabled: false,
     badge: "NEW RELEASE",
-    text: "🎉 Reminda v1.0.0+15 is now live with enhanced Android 15 Home Screen Widgets & URL launcher fix!",
+    text: "Reminda v1.0.0+15 is now live with enhanced Android 15 Home Screen Widgets & URL launcher fix!",
     linkText: "Download Now",
     linkUrl: "https://github.com/Dranyl-23/Reminda/releases/latest",
   },
@@ -59,11 +59,13 @@ export const defaultMarketingConfig: MarketingSiteConfig = {
   downloadHub: {
     tag: "Production Release • v1.0.0+15",
     title: "Never miss another class.",
-    subtitle: "Download Reminda for Android today and turn your registration slip into an intelligent, alarm-synced schedule on your smartphone.",
+    subtitle: "Download Reminda for Windows or Android today and turn your registration slip into an intelligent, alarm-synced schedule across your devices.",
     universalApkUrl: "https://github.com/Dranyl-23/Reminda/releases/latest/download/app-arm64-v8a-release.apk",
     universalApkSize: "~58 MB",
     arm64ApkUrl: "https://github.com/Dranyl-23/Reminda/releases/latest/download/app-arm64-v8a-release.apk",
     arm64ApkSize: "~45 MB",
+    windowsUrl: "https://github.com/Dranyl-23/Reminda/releases/latest/download/reminda-windows-x64.zip",
+    windowsSize: "~18 MB",
     sideloadNote: "When installing the APK file, Android might display an \"Install unknown apps\" prompt. Simply tap Allow from this source to proceed. Reminda is open-source and free of tracking.",
   },
   faqs: [

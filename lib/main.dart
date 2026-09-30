@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -8,6 +9,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'core/config/remote_config_service.dart';
 import 'core/constants/app_theme.dart';
 import 'core/constants/app_version.dart';
+import 'core/constants/build_config.dart';
 import 'core/database/institution_sync_service.dart';
 import 'core/database/profile_repository.dart';
 import 'core/database/schedule_repository.dart';
@@ -30,6 +32,13 @@ void main() async {
   await AppVersion.initialize();
 
   // 3. Load Environment Variables (.env)
+  // For production Windows distribution, prefer injecting API keys at
+  // compile time so no plaintext secrets ship with the .exe:
+  //   flutter build windows --dart-define=GEMINI_API_KEY=<key> \
+  //                         --dart-define=GROQ_API_KEY=<key>
+  // Keys baked in via --dart-define are accessible via BuildConfig.geminiApiKey
+  // and BuildConfig.groqApiKey. The .env file is still loaded as a convenience
+  // for local development when compile-time keys are absent.
   try {
     if (!kIsWeb) {
       File envFile = File('.env');
@@ -43,8 +52,13 @@ void main() async {
       if (envFile.existsSync()) {
         final content = envFile.readAsStringSync();
         dotenv.testLoad(fileInput: content);
-      } else {
-        await dotenv.load(fileName: ".env");
+      } else if (!BuildConfig.hasCompileTimeKeys) {
+        // No .env and no compile-time keys — AI features will be unavailable.
+        debugPrint(
+          'BuildConfig: No .env file found and no compile-time keys injected. '
+          'AI features will be disabled. For production builds use '
+          '--dart-define=GEMINI_API_KEY=<key>.',
+        );
       }
     } else {
       await dotenv.load(fileName: ".env");
@@ -58,6 +72,16 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
+    // Route Flutter framework errors (widget build failures, etc.) to Crashlytics.
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+
+    // Route uncaught Dart async errors that escape Flutter's error handler.
+    WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+
     InstitutionSyncService().startListening();
     RemoteConfigService.instance.startListening();
   } catch (e) {

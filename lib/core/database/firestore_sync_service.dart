@@ -304,7 +304,9 @@ class FirestoreSyncService {
                 await _scheduleRepo.saveSchedule(incoming);
                 changed = true;
               }
-            } catch (_) {}
+            } catch (err) {
+              debugPrint('FirestoreSyncService: Failed to parse incoming schedule ${change.doc.id}: $err');
+            }
           } else if (change.type == DocumentChangeType.removed) {
             await _scheduleRepo.deleteSchedule(change.doc.id);
             changed = true;
@@ -336,7 +338,9 @@ class FirestoreSyncService {
               final profile = ScheduleProfile.fromJson(data);
               await _profileRepo.saveProfile(profile);
               changed = true;
-            } catch (_) {}
+            } catch (err) {
+              debugPrint('FirestoreSyncService: Failed to parse incoming profile ${change.doc.id}: $err');
+            }
           } else if (change.type == DocumentChangeType.removed) {
             await _profileRepo.deleteProfile(change.doc.id);
             changed = true;

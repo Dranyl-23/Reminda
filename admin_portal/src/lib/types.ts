@@ -157,6 +157,8 @@ export interface MarketingSiteConfig {
     universalApkSize: string;
     arm64ApkUrl: string;
     arm64ApkSize: string;
+    windowsUrl?: string;
+    windowsSize?: string;
     sideloadNote: string;
   };
   faqs: Array<{

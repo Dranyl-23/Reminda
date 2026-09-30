@@ -1,4 +1,4 @@
-﻿import urllib.request
+import urllib.request
 import os
 
 headers = {
@@ -26,7 +26,7 @@ logos = {
     'deped.png': 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Department_of_Education_%28DepEd%29.svg/500px-Department_of_Education_%28DepEd%29.svg.png',
 }
 
-out_dir = r'c:\Users\Alfie Lynard\OneDrive\Desktop\archive\Scheduler\assets\logos'
+out_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'assets', 'logos'))
 os.makedirs(out_dir, exist_ok=True)
 
 for fname, url in logos.items():

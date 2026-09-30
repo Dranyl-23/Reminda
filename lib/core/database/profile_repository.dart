@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../models/schedule_profile.dart';
+import '../utils/hive_encryption_helper.dart';
 
 class ProfileRepository {
   static const String boxName = 'profiles_box';
@@ -25,7 +26,8 @@ class ProfileRepository {
     if (Hive.isBoxOpen(boxName)) {
       _box = Hive.box<String>(boxName);
     } else {
-      _box = await Hive.openBox<String>(boxName);
+      final cipher = await HiveEncryptionHelper.getCipher();
+      _box = await Hive.openBox<String>(boxName, encryptionCipher: cipher);
     }
 
     // If empty, initialize default profiles from design

@@ -57,33 +57,42 @@ class ScheduleEntry {
     final yesterdayDate = n.subtract(const Duration(days: 1));
     final yesterdayWeekday = currentWeekday == 1 ? 7 : currentWeekday - 1;
 
+    final startParts = startTime.split(':');
+    final endParts = endTime.split(':');
+    final startH = startParts.length >= 2 ? int.tryParse(startParts[0]) : null;
+    final startM = startParts.length >= 2 ? int.tryParse(startParts[1]) : null;
+    final endH = endParts.length >= 2 ? int.tryParse(endParts[0]) : null;
+    final endM = endParts.length >= 2 ? int.tryParse(endParts[1]) : null;
+
+    if (startH == null || startM == null || endH == null || endM == null) {
+      return false;
+    }
+
+    final startMin = startH * 60 + startM;
+    final rawEndMin = endH * 60 + endM;
+    final isOvernight = spansNextDay || (rawEndMin < startMin);
+
     bool isOngoing = false;
 
-    // Check: did this shift start YESTERDAY and is still ongoing now?
-    if (spansNextDay &&
+    // Check 1: Did this shift start YESTERDAY and is still ongoing past midnight today?
+    if (isOvernight &&
         daysOfWeek.contains(yesterdayWeekday) &&
         !isMutedOnDate(yesterdayDate)) {
-      final endParts = endTime.split(':');
-      if (endParts.length == 2) {
-        final endMin = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
-        if (currentMinutes < endMin) {
-          isOngoing = true;
-        }
+      if (currentMinutes < rawEndMin) {
+        isOngoing = true;
       }
     }
 
-    // Check: does this shift start today and is currently ongoing?
+    // Check 2: Does this shift start TODAY and is currently ongoing?
     if (!isOngoing &&
         daysOfWeek.contains(currentWeekday) &&
         !isMutedOnDate(n)) {
-      final startParts = startTime.split(':');
-      final endParts = endTime.split(':');
-      if (startParts.length == 2 && endParts.length == 2) {
-        final startMin = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
-        int endMin = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
-        if (endMin < startMin) endMin += 24 * 60; // Overnight
-
-        isOngoing = (currentMinutes >= startMin && currentMinutes < endMin);
+      if (isOvernight) {
+        // Active from startMin through end of day (23:59)
+        isOngoing = (currentMinutes >= startMin);
+      } else {
+        // Normal daytime shift
+        isOngoing = (currentMinutes >= startMin && currentMinutes < rawEndMin);
       }
     }
 

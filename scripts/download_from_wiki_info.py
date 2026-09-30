@@ -1,8 +1,10 @@
-﻿import urllib.request
+import urllib.request
 import json
 import os
 
-headers = {'User-Agent': 'SchedlyAcademicApp/1.0 (contact@schedly.app)'}
+headers = {'User-Agent': 'RemindaAcademicApp/1.0 (contact@getreminda.com)'}
+out_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'assets', 'logos'))
+os.makedirs(out_dir, exist_ok=True)
 
 def download_wiki_file(title, out_name):
     url = f'https://en.wikipedia.org/w/api.php?action=query&titles={urllib.parse.quote(title)}&prop=imageinfo&iiprop=url&format=json'
@@ -15,7 +17,7 @@ def download_wiki_file(title, out_name):
                 img_url = pages[pid]['imageinfo'][0]['url']
                 print(f'Fetching {title} from {img_url}...')
                 img_req = urllib.request.Request(img_url, headers=headers)
-                out_path = os.path.join(r'c:\Users\Alfie Lynard\OneDrive\Desktop\archive\Scheduler\assets\logos', out_name)
+                out_path = os.path.join(out_dir, out_name)
                 with urllib.request.urlopen(img_req, timeout=15) as img_resp, open(out_path, 'wb') as f:
                     f.write(img_resp.read())
                 print(f'SAVED: {out_name} ({os.path.getsize(out_path)} bytes)')

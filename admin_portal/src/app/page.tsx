@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, getDocs, limit, startAfter } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { UserFeedback, AiTrainingSample, UserAccount, Institution, Announcement } from "@/lib/types";
 import { Header } from "@/components/Header";
@@ -80,42 +80,81 @@ export default function AnalyticsDashboard() {
   const [selectedMonth, setSelectedMonth] = useState("August 2026");
   const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
 
+  const PAGE_SIZE = 50;
+
+  // --- Pagination state ---
+  // Each collection tracks its own "last visible" doc cursor and page index.
+  const [feedbackPage, setFeedbackPage] = useState(0);
+  const [aiPage, setAiPage] = useState(0);
+  const [userPage, setUserPage] = useState(0);
+
+  // Cursor stacks: index 0 = start of page 0, index N = startAfter cursor for page N.
+  const [feedbackCursors, setFeedbackCursors] = useState<any[]>([null]);
+  const [aiCursors, setAiCursors] = useState<any[]>([null]);
+  const [userCursors, setUserCursors] = useState<any[]>([null]);
+
+  // Flags to know whether more pages exist.
+  const [feedbackHasNext, setFeedbackHasNext] = useState(false);
+  const [aiHasNext, setAiHasNext] = useState(false);
+  const [userHasNext, setUserHasNext] = useState(false);
+
   useEffect(() => {
-    // 1. Feedbacks Stream
-    const qF = collection(db, "user_feedback");
-    const unsubF = onSnapshot(qF, (snap) => {
-      const list: UserFeedback[] = [];
-      snap.forEach((doc) => list.push({ id: doc.id, ...doc.data() } as UserFeedback));
-      setFeedbacks(list);
-    }, (err: any) => console.warn("Feedback snapshot notice:", err.message));
+    // NOTE: Pagination loads up to PAGE_SIZE (50) documents per collection per
+    // page. The year/month filter dropdowns filter within the current page only.
+    // For full server-side date filtering, Firestore composite indexes would be
+    // needed — tracked as a future improvement.
 
-    // 2. AI Samples Stream
-    const qAi = query(collection(db, "ai_training_samples"), orderBy("timestamp", "desc"));
-    const unsubAi = onSnapshot(qAi, (snap) => {
-      const list: AiTrainingSample[] = [];
-      snap.forEach((doc) => list.push({ id: doc.id, ...doc.data() } as AiTrainingSample));
-      setAiSamples(list);
-    }, (err: any) => console.warn("AI sample snapshot notice:", err.message));
+    // 1. Feedbacks (paginated, ordered by timestamp desc)
+    const feedbackQuery = feedbackCursors[feedbackPage]
+      ? query(collection(db, "user_feedback"), orderBy("timestamp", "desc"), limit(PAGE_SIZE + 1), startAfter(feedbackCursors[feedbackPage]))
+      : query(collection(db, "user_feedback"), orderBy("timestamp", "desc"), limit(PAGE_SIZE + 1));
+    getDocs(feedbackQuery).then((snap) => {
+      const docs = snap.docs.slice(0, PAGE_SIZE);
+      setFeedbacks(docs.map((doc) => ({ id: doc.id, ...doc.data() } as UserFeedback)));
+      setFeedbackHasNext(snap.docs.length > PAGE_SIZE);
+      if (snap.docs.length > PAGE_SIZE && feedbackCursors.length === feedbackPage + 1) {
+        setFeedbackCursors((prev) => [...prev, snap.docs[PAGE_SIZE - 1]]);
+      }
+    }).catch((err: any) => console.warn("Feedback fetch notice:", err.message));
 
-    // 3. Users Stream
-    const unsubU = onSnapshot(collection(db, "users"), (snap) => {
-      const list: UserAccount[] = [];
-      snap.forEach((doc) => list.push({ id: doc.id, ...doc.data() } as UserAccount));
-      setUsers(list);
+    // 2. AI Samples (paginated, ordered by timestamp desc)
+    const aiQuery = aiCursors[aiPage]
+      ? query(collection(db, "ai_training_samples"), orderBy("timestamp", "desc"), limit(PAGE_SIZE + 1), startAfter(aiCursors[aiPage]))
+      : query(collection(db, "ai_training_samples"), orderBy("timestamp", "desc"), limit(PAGE_SIZE + 1));
+    getDocs(aiQuery).then((snap) => {
+      const docs = snap.docs.slice(0, PAGE_SIZE);
+      setAiSamples(docs.map((doc) => ({ id: doc.id, ...doc.data() } as AiTrainingSample)));
+      setAiHasNext(snap.docs.length > PAGE_SIZE);
+      if (snap.docs.length > PAGE_SIZE && aiCursors.length === aiPage + 1) {
+        setAiCursors((prev) => [...prev, snap.docs[PAGE_SIZE - 1]]);
+      }
+    }).catch((err: any) => console.warn("AI sample fetch notice:", err.message));
+
+    // 3. Users (paginated — no guaranteed timestamp field so no orderBy)
+    const userQuery = userCursors[userPage]
+      ? query(collection(db, "users"), limit(PAGE_SIZE + 1), startAfter(userCursors[userPage]))
+      : query(collection(db, "users"), limit(PAGE_SIZE + 1));
+    getDocs(userQuery).then((snap) => {
+      const docs = snap.docs.slice(0, PAGE_SIZE);
+      setUsers(docs.map((doc) => ({ id: doc.id, ...doc.data() } as UserAccount)));
+      setUserHasNext(snap.docs.length > PAGE_SIZE);
       setIsLoading(false);
-    }, (err: any) => {
-      console.warn("Users snapshot notice:", err.message);
+      if (snap.docs.length > PAGE_SIZE && userCursors.length === userPage + 1) {
+        setUserCursors((prev) => [...prev, snap.docs[PAGE_SIZE - 1]]);
+      }
+    }).catch((err: any) => {
+      console.warn("Users fetch notice:", err.message);
       setIsLoading(false);
     });
 
-    // 4. Institutions Stream
+    // 4. Institutions — small/bounded collection, single snapshot is safe
     const unsubI = onSnapshot(collection(db, "institutions"), (snap) => {
       const list: Institution[] = [];
       snap.forEach((doc) => list.push({ id: doc.id, ...doc.data() } as Institution));
       setInstitutions(list);
     });
 
-    // 5. Announcements Stream
+    // 5. Announcements — small/bounded collection, single snapshot is safe
     const unsubA = onSnapshot(collection(db, "announcements"), (snap) => {
       const list: Announcement[] = [];
       snap.forEach((doc) => list.push({ id: doc.id, ...doc.data() } as Announcement));
@@ -123,13 +162,10 @@ export default function AnalyticsDashboard() {
     });
 
     return () => {
-      unsubF();
-      unsubAi();
-      unsubU();
       unsubI();
       unsubA();
     };
-  }, []);
+  }, [feedbackPage, aiPage, userPage]);
 
   // --- DYNAMIC CALCULATIONS ---
 

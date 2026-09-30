@@ -485,7 +485,25 @@ export default function WebsiteCMSPage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-100 dark:border-[#202231]">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-slate-100 dark:border-[#202231]">
+              <div className="p-4 rounded-xl border border-slate-100 dark:border-[#202231] space-y-3">
+                <span className="text-xs font-bold text-slate-900 dark:text-white">Windows Desktop (x64)</span>
+                <input
+                  type="text"
+                  value={config.downloadHub.windowsUrl || ""}
+                  onChange={(e) => setConfig({ ...config, downloadHub: { ...config.downloadHub, windowsUrl: e.target.value } })}
+                  placeholder="URL to Windows .zip / .exe"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-[#202231] bg-slate-50/50 dark:bg-[#1C1D2B] text-[11px] font-mono text-slate-900 dark:text-white focus:outline-hidden"
+                />
+                <input
+                  type="text"
+                  value={config.downloadHub.windowsSize || ""}
+                  onChange={(e) => setConfig({ ...config, downloadHub: { ...config.downloadHub, windowsSize: e.target.value } })}
+                  placeholder="~18 MB"
+                  className="w-24 px-2 py-1 rounded-md border border-slate-200 dark:border-[#202231] bg-slate-50/50 dark:bg-[#1C1D2B] text-[11px] font-mono text-slate-900 dark:text-white focus:outline-hidden"
+                />
+              </div>
+
               <div className="p-4 rounded-xl border border-slate-100 dark:border-[#202231] space-y-3">
                 <span className="text-xs font-bold text-slate-900 dark:text-white">Universal Release APK</span>
                 <input

@@ -202,5 +202,49 @@ void main() {
       final mutedEntry = entry2.copyWith(mutedDates: [nextIso2!]);
       expect(mutedEntry.isNextOccurrenceMuted, isTrue);
     });
+
+    test('isCurrentlyOngoing handles daytime, overnight, and invalid formats correctly', () {
+      // Daytime shift: 09:00 - 11:00 on Monday (weekday 1)
+      final daytimeEntry = ScheduleEntry(
+        title: 'Morning Class',
+        daysOfWeek: [1],
+        startTime: '09:00',
+        endTime: '11:00',
+      );
+
+      // On Monday at 10:00 -> ongoing
+      expect(daytimeEntry.isCurrentlyOngoing(DateTime(2026, 10, 5, 10, 0)), isTrue);
+      // On Monday at 08:30 -> not ongoing
+      expect(daytimeEntry.isCurrentlyOngoing(DateTime(2026, 10, 5, 8, 30)), isFalse);
+      // On Monday at 11:30 -> not ongoing
+      expect(daytimeEntry.isCurrentlyOngoing(DateTime(2026, 10, 5, 11, 30)), isFalse);
+      // On Tuesday at 10:00 -> not ongoing
+      expect(daytimeEntry.isCurrentlyOngoing(DateTime(2026, 10, 6, 10, 0)), isFalse);
+
+      // Overnight shift: 22:00 - 06:00 starting on Monday night (weekday 1)
+      final overnightEntry = ScheduleEntry(
+        title: 'Night Shift',
+        daysOfWeek: [1],
+        startTime: '22:00',
+        endTime: '06:00',
+        spansNextDay: true,
+      );
+
+      // Monday 23:00 -> ongoing
+      expect(overnightEntry.isCurrentlyOngoing(DateTime(2026, 10, 5, 23, 0)), isTrue);
+      // Tuesday 03:00 -> ongoing past midnight
+      expect(overnightEntry.isCurrentlyOngoing(DateTime(2026, 10, 6, 3, 0)), isTrue);
+      // Tuesday 07:00 -> not ongoing
+      expect(overnightEntry.isCurrentlyOngoing(DateTime(2026, 10, 6, 7, 0)), isFalse);
+
+      // Malformed time string -> safely returns false instead of throwing FormatException
+      final malformedEntry = ScheduleEntry(
+        title: 'Malformed',
+        daysOfWeek: [1],
+        startTime: 'TBD',
+        endTime: 'INVALID',
+      );
+      expect(malformedEntry.isCurrentlyOngoing(DateTime(2026, 10, 5, 10, 0)), isFalse);
+    });
   });
 }

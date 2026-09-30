@@ -41,15 +41,18 @@ service cloud.firestore {
       }
     }
 
-    // In-App User Feedback collection (Public write, Admin read/update/delete)
+    // In-App User Feedback collection (Validated create, Admin read/update/delete)
     match /user_feedback/{feedbackId} {
-      allow create: if true;
+      allow create: if request.resource.data.keys().hasAny(['message', 'comment', 'rating']) &&
+                       (!('message' in request.resource.data) || request.resource.data.message.size() <= 4000) &&
+                       (!('comment' in request.resource.data) || request.resource.data.comment.size() <= 4000);
       allow read, update, delete: if isAdmin();
     }
 
-    // Anonymous AI Training Telemetry Dataset collection (Public write, Admin read/update/delete)
+    // Anonymous AI Training Telemetry Dataset collection (Validated create, Admin read/update/delete)
     match /ai_training_samples/{sampleId} {
-      allow create: if true;
+      allow create: if request.resource.data.keys().hasAny(['verifiedEntries', 'entriesCount']) &&
+                       request.resource.size() < 100000;
       allow read, update, delete: if isAdmin();
     }
 
@@ -71,9 +74,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // 6-Digit Class Block Schedule Sharing (Public Read & Create for Classmates)
+    // 6-Digit Class Block Schedule Sharing (Public Read & Validated Create for Classmates)
     match /shared_schedules/{shareCode} {
-      allow read, create: if true;
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['schedules']) &&
+                       request.resource.data.schedules is list &&
+                       request.resource.data.schedules.size() <= 50;
       allow update, delete: if isAdmin();
     }
   }

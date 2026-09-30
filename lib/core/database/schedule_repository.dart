@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../models/schedule_entry.dart';
+import '../utils/hive_encryption_helper.dart';
 
 class ScheduleRepository {
   static const String boxName = 'schedules_box';
@@ -29,7 +31,8 @@ class ScheduleRepository {
     if (Hive.isBoxOpen(boxName)) {
       _box = Hive.box<String>(boxName);
     } else {
-      _box = await Hive.openBox<String>(boxName);
+      final cipher = await HiveEncryptionHelper.getCipher();
+      _box = await Hive.openBox<String>(boxName, encryptionCipher: cipher);
     }
     _rebuildCacheFromDisk();
   }
@@ -49,8 +52,8 @@ class ScheduleRepository {
             jsonDecode(rawJson) as Map<String, dynamic>;
         final entry = ScheduleEntry.fromJson(map);
         cache[entry.id] = entry;
-      } catch (_) {
-        // Skip corrupted entries
+      } catch (e) {
+        debugPrint('ScheduleRepository: Skipped corrupted entry from disk: $e');
       }
     }
     _memoryCache = cache;

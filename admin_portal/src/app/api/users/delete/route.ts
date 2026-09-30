@@ -42,8 +42,8 @@ export async function POST(req: NextRequest) {
     try {
       const userDocRef = adminDb.collection("users").doc(uid);
 
-      // Delete subcollections: profiles & schedules
-      const subcollections = ["profiles", "schedules"];
+      // Delete subcollections: profiles, schedules & notifications
+      const subcollections = ["profiles", "schedules", "notifications"];
       for (const sub of subcollections) {
         const subSnap = await userDocRef.collection(sub).get();
         const batch = adminDb.batch();

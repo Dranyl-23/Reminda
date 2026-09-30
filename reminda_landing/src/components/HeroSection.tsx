@@ -1,19 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { 
   QrCode, 
-  Check 
+  Check,
+  ChevronDown,
+  ArrowRight
 } from "lucide-react";
 import { useMarketingConfig } from "@/context/MarketingConfigContext";
-
-function CloudDownloadIcon({ className = "w-5 h-5 text-white" }: { className?: string }) {
-  return (
-    <svg width="1em" height="1em" className={className} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M18.944 11.112C18.507 7.67 15.56 5 12 5C9.244 5 6.85 6.61 5.757 9.149C3.609 9.792 2 11.82 2 14c0 2.657 2.089 4.815 4.708 4.971V19H17.99v-.003L18 19c2.206 0 4-1.794 4-4a4.008 4.008 0 0 0-3.056-3.888zM8 12h3V9h2v3h3l-4 5l-4-5z" />
-    </svg>
-  );
-}
+import { WindowsIcon, AndroidIcon } from "@/components/icons";
 
 function GithubIcon({ className = "w-4 h-4 text-black" }: { className?: string }) {
   return (
@@ -29,8 +24,52 @@ function GithubIcon({ className = "w-4 h-4 text-black" }: { className?: string }
 
 export function HeroSection() {
   const [showQrModal, setShowQrModal] = useState(false);
+  const [downloadDropdownOpen, setDownloadDropdownOpen] = useState(false);
+  const [detectedPlatform, setDetectedPlatform] = useState<"windows" | "android" | "other">("windows");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  
   const { config } = useMarketingConfig();
-  const { hero } = config;
+  const { hero, downloadHub } = config;
+
+  const windowsDownloadUrl = downloadHub.windowsUrl || "https://github.com/Dranyl-23/Reminda/releases/latest/download/reminda-windows-x64.zip";
+  const universalApkUrl = downloadHub.universalApkUrl || "https://github.com/Dranyl-23/Reminda/releases/latest/download/app-arm64-v8a-release.apk";
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const ua = navigator.userAgent.toLowerCase();
+      if (ua.includes("android")) {
+        setDetectedPlatform("android");
+      } else if (ua.includes("win")) {
+        setDetectedPlatform("windows");
+      } else {
+        setDetectedPlatform("windows");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDownloadDropdownOpen(false);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setDownloadDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  const primaryDownloadUrl = detectedPlatform === "windows" ? windowsDownloadUrl : universalApkUrl;
+  const primaryDownloadText = detectedPlatform === "windows" 
+    ? "Download for Windows" 
+    : (detectedPlatform === "android" ? "Download Android APK" : "Download Reminda");
 
   return (
     <div className="max-w-6xl mx-auto px-5">
@@ -56,34 +95,128 @@ export function HeroSection() {
             {hero.subtitle}
           </p>
 
-          {/* Astroship Dual CTA Buttons */}
-          <div className="mt-6 flex flex-col sm:flex-row gap-3">
-            <a
-              href={hero.primaryButtonUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-sm text-center transition focus-visible:ring-2 ring-offset-2 ring-gray-200 px-5 py-2.5 bg-black text-white hover:bg-gray-800 border-2 border-transparent flex gap-1 items-center justify-center font-medium text-sm"
-            >
-              <CloudDownloadIcon className="text-white w-5 h-5 mr-1" />
-              <span>{hero.primaryButtonText}</span>
-            </a>
+          {/* Astroship Dual CTA Buttons with Platform Dropdown */}
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            
+            {/* Split Download CTA with Platform Selector */}
+            <div className="relative inline-flex items-center" ref={dropdownRef}>
+              <div className="inline-flex items-stretch h-11 rounded-sm bg-black text-white shadow-xs focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-gray-300">
+                <a
+                  href={primaryDownloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-full px-4.5 bg-black text-white hover:bg-gray-800 transition flex items-center justify-center gap-2 font-medium text-sm whitespace-nowrap rounded-l-sm"
+                >
+                  {detectedPlatform === "windows" ? (
+                    <WindowsIcon className="text-blue-400 w-4 h-4 shrink-0" />
+                  ) : (
+                    <AndroidIcon className="text-emerald-400 w-4 h-4 shrink-0" />
+                  )}
+                  <span>{primaryDownloadText}</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => setDownloadDropdownOpen((prev) => !prev)}
+                  className="h-full px-2.5 bg-black text-white hover:bg-gray-800 transition border-l border-white/20 flex items-center justify-center cursor-pointer rounded-r-sm"
+                  aria-label="Select Download Platform"
+                  aria-expanded={downloadDropdownOpen}
+                >
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${downloadDropdownOpen ? "rotate-180" : ""}`} />
+                </button>
+              </div>
+
+              {/* Platform Popover Menu */}
+              {downloadDropdownOpen && (
+                <div className="absolute left-0 top-full mt-2 w-72 bg-white rounded-xl shadow-2xl border border-slate-200 p-2 z-50 animate-fade-in">
+                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Choose Your Platform
+                  </div>
+
+                  {/* Windows Option */}
+                  <a
+                    href={windowsDownloadUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setDownloadDropdownOpen(false)}
+                    className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-slate-50 transition-colors group"
+                  >
+                    <div className="p-2 rounded-md bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors shrink-0">
+                      <WindowsIcon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-800 text-xs group-hover:text-blue-600 transition-colors">
+                          Windows PC (x64)
+                        </span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                          {downloadHub.windowsSize || "~18 MB"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Windows 10 / 11 Desktop Client</p>
+                    </div>
+                  </a>
+
+                  {/* Android Universal Option */}
+                  <a
+                    href={universalApkUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setDownloadDropdownOpen(false)}
+                    className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-slate-50 transition-colors group"
+                  >
+                    <div className="p-2 rounded-md bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors shrink-0">
+                      <AndroidIcon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-800 text-xs group-hover:text-emerald-600 transition-colors">
+                          Android Mobile (APK)
+                        </span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                          {downloadHub.universalApkSize || "~58 MB"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Phones &amp; Tablets &bull; Android 8.0+</p>
+                    </div>
+                  </a>
+
+                  {/* QR Option in menu */}
+                  <div className="border-t border-slate-100 mt-1 pt-1.5 px-1">
+                    <button
+                      onClick={() => {
+                        setDownloadDropdownOpen(false);
+                        setShowQrModal(true);
+                      }}
+                      className="w-full text-left flex items-center justify-between p-2 rounded-md hover:bg-slate-50 text-[11px] font-medium text-slate-700 hover:text-slate-900 cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2">
+                        <QrCode className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Scan QR for Phone</span>
+                      </span>
+                      <ArrowRight className="w-3 h-3 text-slate-400" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             <a
               href={hero.secondaryButtonUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-sm text-center transition focus-visible:ring-2 ring-offset-2 ring-gray-200 px-5 py-2.5 bg-white border-2 border-black hover:bg-gray-100 text-black flex gap-1 items-center justify-center font-medium text-sm"
+              className="h-11 px-4.5 rounded-sm transition focus-visible:ring-2 ring-offset-2 ring-gray-200 bg-white border-2 border-black hover:bg-gray-100 text-black flex items-center justify-center gap-2 font-medium text-sm whitespace-nowrap"
             >
-              <GithubIcon className="text-black w-4 h-4 mr-1" />
+              <GithubIcon className="text-black w-4 h-4 shrink-0" />
               <span>{hero.secondaryButtonText}</span>
             </a>
 
             {hero.enableQrModal && (
               <button
                 onClick={() => setShowQrModal(true)}
-                className="rounded-sm text-center transition px-4 py-2.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 flex gap-1.5 items-center justify-center text-sm font-medium cursor-pointer"
+                className="h-11 px-3.5 rounded-sm transition focus-visible:ring-2 ring-offset-2 ring-gray-200 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 flex items-center justify-center gap-1.5 text-sm font-medium whitespace-nowrap cursor-pointer"
               >
-                <QrCode className="w-4 h-4 text-slate-600" />
+                <QrCode className="w-4 h-4 text-slate-600 shrink-0" />
                 <span>Scan QR</span>
               </button>
             )}
@@ -91,6 +224,10 @@ export function HeroSection() {
 
           {/* Key Checklist Badges */}
           <div className="mt-8 flex items-center gap-6 text-xs text-slate-500 font-medium flex-wrap">
+            <span className="flex items-center gap-1.5">
+              <Check className="w-4 h-4 text-blue-600 stroke-[3]" />
+              Windows &amp; Android Sync
+            </span>
             <span className="flex items-center gap-1.5">
               <Check className="w-4 h-4 text-blue-600 stroke-[3]" />
               Zero-Blur PDF Stream OCR

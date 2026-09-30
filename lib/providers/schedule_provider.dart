@@ -39,11 +39,11 @@ class ScheduleNotifier extends StateNotifier<List<ScheduleEntry>> {
     VoidCallback? onProfilesChanged,
   })  : _onProfilesChanged = onProfilesChanged,
         super([]) {
-    _loadSchedules();
+    _loadSchedules(syncHealedToCloud: true);
     _rescheduleAlarms();
     _syncService.startSync(onDataChanged: () {
       _onProfilesChanged?.call();
-      _loadSchedules();
+      _loadSchedules(syncHealedToCloud: false);
       _rescheduleAlarms();
     });
   }
@@ -54,7 +54,7 @@ class ScheduleNotifier extends StateNotifier<List<ScheduleEntry>> {
     super.dispose();
   }
 
-  void _loadSchedules() {
+  void _loadSchedules({bool syncHealedToCloud = false}) {
     var schedules = _repository.getAllSchedules();
     final profiles = _profileRepository.getAllProfiles();
     if (profiles.isNotEmpty && schedules.isNotEmpty) {
@@ -117,7 +117,9 @@ class ScheduleNotifier extends StateNotifier<List<ScheduleEntry>> {
       if (healed.isNotEmpty) {
         schedules = updatedList;
         _repository.saveBatch(healed);
-        _syncService.syncBatchSchedulesToCloud(healed);
+        if (syncHealedToCloud) {
+          _syncService.syncBatchSchedulesToCloud(healed);
+        }
       }
 
       // Self-healing: Automatically eliminate redundant duplicate schedules
@@ -129,9 +131,11 @@ class ScheduleNotifier extends StateNotifier<List<ScheduleEntry>> {
         if (dedupResult.updated.isNotEmpty) {
           _repository.saveBatch(dedupResult.updated);
         }
-        _syncService.deleteBatchSchedulesFromCloud(
-          dedupResult.removed.map((e) => e.id).toList(),
-        );
+        if (syncHealedToCloud) {
+          _syncService.deleteBatchSchedulesFromCloud(
+            dedupResult.removed.map((e) => e.id).toList(),
+          );
+        }
         schedules = dedupResult.kept;
       }
     }

@@ -1,4 +1,4 @@
-﻿workflows:
+workflows:
   android-workflow:
     name: Reminda Android Release Build
     max_build_duration: 60
@@ -17,6 +17,7 @@
           flutter packages pub get
       - name: Run Flutter Analyzer & Tests
         script: |
+          flutter analyze
           flutter test
       - name: Build Android Release APK
         script: |
@@ -28,6 +29,39 @@
       - build/**/outputs/**/*.apk
       - build/**/outputs/**/*.aab
       - build/**/outputs/**/mapping.txt
+    publishing:
+      email:
+        recipients:
+          - alfiepolacas23@gmail.com
+        notify:
+          success: true
+          failure: true
+
+  windows-workflow:
+    name: Reminda Windows Release Build
+    max_build_duration: 60
+    instance_type: windows_x2
+    environment:
+      flutter: stable
+      # API keys injected at compile time — never stored in a .env file
+      # that would ship alongside the Windows executable.
+      groups:
+        - reminda_secrets  # Codemagic env group containing GEMINI_API_KEY, GROQ_API_KEY
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+      - name: Run Flutter Analyzer & Tests
+        script: |
+          flutter analyze
+          flutter test
+      - name: Build Windows Release (keys baked in at compile time)
+        script: |
+          flutter build windows --release --no-tree-shake-icons `
+            --dart-define=GEMINI_API_KEY=$env:GEMINI_API_KEY `
+            --dart-define=GROQ_API_KEY=$env:GROQ_API_KEY
+    artifacts:
+      - build\windows\x64\runner\Release\**
     publishing:
       email:
         recipients:
@@ -56,6 +90,7 @@
           find . -name "Podfile" -execdir pod install \;
       - name: Run Flutter Analyzer & Tests
         script: |
+          flutter analyze
           flutter test
       - name: Build iOS Application Payload (xcodebuild unsigned)
         script: |
