@@ -38,6 +38,8 @@ class FirestoreSyncService {
     return _firestore.collection('users').doc(uid).collection('profiles');
   }
 
+  VoidCallback? _maintenanceListener;
+
   /// Initialize real-time synchronization between Hive and Cloud Firestore
   void startSync({
     VoidCallback? onDataChanged,
@@ -47,12 +49,28 @@ class FirestoreSyncService {
       if (user != null) {
         debugPrint('FirestoreSyncService: User logged in (${user.uid}). Pulling cloud schedules & profiles...');
         await pullAndSyncAll(onDataChanged: onDataChanged);
-        _listenToCloudChanges(onDataChanged);
+        if (!RemoteConfigService.instance.maintenanceMode) {
+          _listenToCloudChanges(onDataChanged);
+        }
       } else {
         debugPrint('FirestoreSyncService: User logged out. Cancelling realtime subscriptions.');
         _cancelSubscriptions();
       }
     });
+
+    if (_maintenanceListener == null) {
+      _maintenanceListener = () async {
+        if (!RemoteConfigService.instance.maintenanceMode && _auth.currentUser != null) {
+          debugPrint('FirestoreSyncService: Server maintenance ended. Resuming sync & listeners...');
+          await pullAndSyncAll(onDataChanged: onDataChanged);
+          _listenToCloudChanges(onDataChanged);
+        } else if (RemoteConfigService.instance.maintenanceMode) {
+          debugPrint('FirestoreSyncService: Server maintenance started. Pausing realtime cloud listeners.');
+          _cancelSubscriptions();
+        }
+      };
+      RemoteConfigService.instance.maintenanceModeNotifier.addListener(_maintenanceListener!);
+    }
   }
 
   bool _isSyncing = false;
@@ -474,6 +492,10 @@ class FirestoreSyncService {
   }
 
   void dispose() {
+    if (_maintenanceListener != null) {
+      RemoteConfigService.instance.maintenanceModeNotifier.removeListener(_maintenanceListener!);
+      _maintenanceListener = null;
+    }
     _authStateSubscription?.cancel();
     _authStateSubscription = null;
     _cancelSubscriptions();
