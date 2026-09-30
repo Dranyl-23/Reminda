@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../models/schedule_profile.dart';
 import '../utils/hive_encryption_helper.dart';
@@ -26,8 +27,25 @@ class ProfileRepository {
     if (Hive.isBoxOpen(boxName)) {
       _box = Hive.box<String>(boxName);
     } else {
-      final cipher = await HiveEncryptionHelper.getCipher();
-      _box = await Hive.openBox<String>(boxName, encryptionCipher: cipher);
+      HiveAesCipher? cipher;
+      try {
+        cipher = await HiveEncryptionHelper.getCipher();
+      } catch (e) {
+        debugPrint('ProfileRepository: Encryption cipher lookup failed: $e');
+      }
+
+      if (cipher != null) {
+        try {
+          _box = await Hive.openBox<String>(boxName, encryptionCipher: cipher);
+        } catch (e) {
+          debugPrint(
+            'ProfileRepository: Encrypted open failed ($e), opening unencrypted box for backward compatibility',
+          );
+          _box = await Hive.openBox<String>(boxName);
+        }
+      } else {
+        _box = await Hive.openBox<String>(boxName);
+      }
     }
 
     // If empty, initialize default profiles from design

@@ -18,15 +18,20 @@ class HiveEncryptionHelper {
 
   /// Returns a [HiveAesCipher] backed by a securely persisted 256-bit key.
   /// On first call the key is randomly generated and stored in the OS keychain.
-  static Future<HiveAesCipher> getCipher() async {
-    String? b64 = await _storage.read(key: _storageKey);
-    if (b64 == null || b64.isEmpty) {
-      final key = _generateKey();
-      b64 = base64UrlEncode(key);
-      await _storage.write(key: _storageKey, value: b64);
+  /// If secure storage fails or is unavailable on the platform, returns null.
+  static Future<HiveAesCipher?> getCipher() async {
+    try {
+      String? b64 = await _storage.read(key: _storageKey);
+      if (b64 == null || b64.isEmpty) {
+        final key = _generateKey();
+        b64 = base64UrlEncode(key);
+        await _storage.write(key: _storageKey, value: b64);
+      }
+      final keyBytes = base64Url.decode(b64);
+      return HiveAesCipher(keyBytes);
+    } catch (_) {
+      return null;
     }
-    final keyBytes = base64Url.decode(b64);
-    return HiveAesCipher(keyBytes);
   }
 
   /// Generates a cryptographically secure random 32-byte (256-bit) key.

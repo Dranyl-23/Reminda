@@ -61,6 +61,8 @@ dependencies:
 
 dependency_overrides:
   image_picker_android: 0.8.12+18
+  flutter_secure_storage_windows:
+    path: packages/flutter_secure_storage_windows
 
 dev_dependencies:
   flutter_test:
