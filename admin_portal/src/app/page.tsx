@@ -189,6 +189,27 @@ export default function AnalyticsDashboard() {
     if (f.contactEmail && userPhotos[f.contactEmail.toLowerCase().trim()]) return userPhotos[f.contactEmail.toLowerCase().trim()];
     return null;
   };
+
+  const getFriendlyFeedbackName = (f: UserFeedback) => {
+    const raw = (f.userName || "").trim();
+    if (raw && raw.toLowerCase() !== "user" && raw.toLowerCase() !== "reminda user") {
+      return raw;
+    }
+    const email = f.contactEmail;
+    if (email && email.includes("@")) {
+      const handle = email.split("@")[0];
+      const parts = handle
+        .replace(/[._\-+0-9]+/g, " ")
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+      if (parts.length > 0) {
+        return parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
+      }
+      return handle.charAt(0).toUpperCase() + handle.slice(1);
+    }
+    return raw || "Reminda User";
+  };
   const totalFeedbacks = feedbacks.length;
   const totalAiSamples = aiSamples.length;
 
@@ -1022,11 +1043,11 @@ export default function AnalyticsDashboard() {
                               />
                             ) : (
                               <div className="w-8 h-8 rounded-full bg-linear-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
-                                {(f.userName || "U")[0].toUpperCase()}
+                                {(getFriendlyFeedbackName(f) || "U")[0].toUpperCase()}
                               </div>
                             )}
                             <div className="min-w-0">
-                              <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{f.userName || "Reminda User"}</p>
+                              <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{getFriendlyFeedbackName(f)}</p>
                               <p className="text-[10px] text-slate-500 dark:text-slate-300 truncate">{f.category || "General"}</p>
                             </div>
                           </div>

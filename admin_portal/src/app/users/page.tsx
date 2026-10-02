@@ -27,8 +27,74 @@ import {
   ChevronRight, 
   CheckCircle2, 
   CalendarCheck,
-  Trash2
+  Trash2,
+  Monitor,
+  Smartphone,
+  Globe
 } from "lucide-react";
+
+export const getUserDisplayName = (u: { displayName?: string; name?: string; email?: string } | null | undefined): string => {
+  if (!u) return "User";
+  const raw = (u.displayName || (u as any).name || "").trim();
+  if (raw && raw.toLowerCase() !== "user" && raw.toLowerCase() !== "reminda user") {
+    return raw;
+  }
+  if (u.email && u.email.includes("@")) {
+    const handle = u.email.split("@")[0];
+    const parts = handle
+      .replace(/[._\-+0-9]+/g, " ")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (parts.length > 0) {
+      return parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(" ");
+    }
+    return handle.charAt(0).toUpperCase() + handle.slice(1);
+  }
+  return raw || "Reminda User";
+};
+
+export const getPlatformMeta = (platformRaw?: string) => {
+  const p = (platformRaw || "").toLowerCase();
+  const isDesktop = p.includes("window") || p.includes("mac") || p.includes("linux") || p.includes("pc") || p.includes("desktop");
+  const isWeb = p.includes("web");
+
+  if (isDesktop) {
+    const osName = p.includes("mac") ? "macOS" : p.includes("linux") ? "Linux" : "Windows";
+    return {
+      type: "desktop" as const,
+      label: "Desktop PC",
+      os: osName,
+      badgeText: `Desktop (${osName})`,
+      fullLabel: `${osName} Desktop App`,
+      badgeStyle: "bg-blue-50 text-blue-700 border-blue-200/80 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800/80",
+      icon: Monitor,
+    };
+  }
+
+  if (isWeb) {
+    return {
+      type: "web" as const,
+      label: "Web App",
+      os: "Browser",
+      badgeText: "Web Browser",
+      fullLabel: "Web Browser Client",
+      badgeStyle: "bg-amber-50 text-amber-700 border-amber-200/80 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/80",
+      icon: Globe,
+    };
+  }
+
+  const osName = p.includes("ios") ? "iOS" : "Android";
+  return {
+    type: "mobile" as const,
+    label: "Mobile App",
+    os: osName,
+    badgeText: `Mobile (${osName})`,
+    fullLabel: `${osName} Mobile App`,
+    badgeStyle: "bg-emerald-50 text-emerald-700 border-emerald-200/80 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/80",
+    icon: Smartphone,
+  };
+};
 
 export default function UsersPage() {
   const [users, setUsers] = useState<UserAccount[]>([]);
@@ -51,6 +117,10 @@ export default function UsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [platformFilter, setPlatformFilter] = useState<"all" | "desktop" | "mobile">("all");
+
+  const desktopCount = users.filter((u) => getPlatformMeta(u.platform).type === "desktop").length;
+  const mobileCount = users.filter((u) => getPlatformMeta(u.platform).type === "mobile").length;
 
   useEffect(() => {
     const q = query(collection(db, "users"));
@@ -138,13 +208,26 @@ export default function UsersPage() {
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   const filtered = users.filter((u) => {
+    const meta = getPlatformMeta(u.platform);
+    if (platformFilter === "desktop" && meta.type !== "desktop") return false;
+    if (platformFilter === "mobile" && meta.type !== "mobile") return false;
+
     const q = searchQuery.toLowerCase().trim();
     if (!q) return true;
+    const name = getUserDisplayName(u).toLowerCase();
+    const rawName = (u.displayName || (u as any).name || "").toLowerCase();
+    const email = (u.email || "").toLowerCase();
+    const id = (u.id || "").toLowerCase();
+    const platform = (u.platform || "").toLowerCase();
+    const fullClient = meta.fullLabel.toLowerCase();
+
     return (
-      (u.displayName || "").toLowerCase().includes(q) ||
-      ((u as any).name || "").toLowerCase().includes(q) ||
-      (u.email || "").toLowerCase().includes(q) ||
-      (u.id || "").toLowerCase().includes(q)
+      name.includes(q) ||
+      rawName.includes(q) ||
+      email.includes(q) ||
+      id.includes(q) ||
+      platform.includes(q) ||
+      fullClient.includes(q)
     );
   });
 
@@ -164,7 +247,7 @@ export default function UsersPage() {
         <ConfirmModal
           isOpen={!!deleteTarget}
           title="Delete User Account?"
-          message={`Are you sure you want to permanently delete the account for "${deleteTarget?.displayName || (deleteTarget as any)?.name || deleteTarget?.email || 'this user'}"? This action will remove all their cloud-synced schedule records.`}
+          message={`Are you sure you want to permanently delete the account for "${getUserDisplayName(deleteTarget)}"? This action will remove all their cloud-synced schedule records.`}
           confirmText="Yes, Delete Record"
           cancelText="Keep Account"
           onConfirm={handleConfirmDelete}
@@ -175,25 +258,74 @@ export default function UsersPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
-              Live Registered Mobile Users ({users.length} Active). Click any user to inspect their live schedule profiles & classes for customer support troubleshooting.
+              Live Registered Reminda Accounts ({users.length} Active). Click any user to inspect their live schedule profiles & classes for customer support troubleshooting.
             </p>
           </div>
 
-          <div className="px-3.5 py-2 rounded-2xl bg-white dark:bg-[#1C1D2B] border border-slate-200 dark:border-[#282A3D] text-xs font-bold text-slate-700 dark:text-slate-300 shadow-xs">
-            Total Users: {users.length}
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/80 text-xs font-bold text-blue-700 dark:text-blue-300 shadow-2xs">
+              <Monitor className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span>Desktop: {desktopCount}</span>
+            </span>
+
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/80 text-xs font-bold text-emerald-700 dark:text-emerald-300 shadow-2xs">
+              <Smartphone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Mobile: {mobileCount}</span>
+            </span>
+
+            <div className="px-3.5 py-1.5 rounded-2xl bg-white dark:bg-[#1C1D2B] border border-slate-200 dark:border-[#282A3D] text-xs font-bold text-slate-700 dark:text-slate-300 shadow-2xs">
+              Total: {users.length}
+            </div>
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="p-4 rounded-3xl bg-white dark:bg-[#1C1D2B] border border-slate-200 dark:border-[#282A3D]/70 shadow-xs">
-          <div className="relative w-full">
+        {/* Search & Platform Filter Bar */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 rounded-3xl bg-white dark:bg-[#1C1D2B] border border-slate-200 dark:border-[#282A3D]/70 shadow-xs">
+          <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-[#25273A]/80 rounded-2xl shrink-0 overflow-x-auto">
+            <button
+              onClick={() => setPlatformFilter("all")}
+              className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all ${
+                platformFilter === "all"
+                  ? "bg-white dark:bg-[#1C1D2B] text-slate-900 dark:text-white shadow-xs"
+                  : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
+              }`}
+            >
+              All Clients ({users.length})
+            </button>
+
+            <button
+              onClick={() => setPlatformFilter("desktop")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition-all ${
+                platformFilter === "desktop"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
+              }`}
+            >
+              <Monitor className="w-3.5 h-3.5" />
+              <span>Desktop / PC ({desktopCount})</span>
+            </button>
+
+            <button
+              onClick={() => setPlatformFilter("mobile")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition-all ${
+                platformFilter === "mobile"
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "text-slate-500 hover:text-slate-800 dark:text-slate-400"
+              }`}
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>Mobile ({mobileCount})</span>
+            </button>
+          </div>
+
+          <div className="relative w-full md:max-w-md">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search by customer name, email address, or Firebase UID..."
+              placeholder="Search by name, email, platform, or UID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-[#25273A]/60 border border-slate-200 dark:border-[#282A3D]/70 text-slate-900 dark:text-white text-xs placeholder-slate-400 focus:outline-none focus:border-blue-500"
+              className="w-full pl-10 pr-4 py-2 rounded-2xl bg-slate-50 dark:bg-[#25273A]/60 border border-slate-200 dark:border-[#282A3D]/70 text-slate-900 dark:text-white text-xs placeholder-slate-400 focus:outline-none focus:border-blue-500"
             />
           </div>
         </div>
@@ -215,74 +347,85 @@ export default function UsersPage() {
                   <tr className="bg-slate-50 dark:bg-[#25273A]/60/80 border-b border-slate-200 dark:border-[#282A3D]/70 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     <th className="py-3.5 px-6">Customer / User</th>
                     <th className="py-3.5 px-6">Email Address</th>
-                    <th className="py-3.5 px-6">Platform & App</th>
+                    <th className="py-3.5 px-6">Platform & Client</th>
                     <th className="py-3.5 px-6">Firebase User ID</th>
                     <th className="py-3.5 px-6 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-[#282A3D] font-medium text-slate-700 dark:text-slate-300">
-                  {filtered.map((u) => (
-                    <tr
-                      key={u.id}
-                      onClick={() => openInspector(u)}
-                      className="hover:bg-blue-50/40 cursor-pointer transition-colors"
-                    >
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-3">
-                          {u.photoUrl ? (
-                            <img
-                              src={u.photoUrl}
-                              alt={u.displayName || "User"}
-                              className="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-[#282A3D] shadow-xs shrink-0"
-                              referrerPolicy="no-referrer"
-                            />
-                          ) : (
-                            <div className="w-9 h-9 rounded-full bg-linear-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-xs shadow-xs shrink-0">
-                              {(u.displayName || u.email || "U")[0].toUpperCase()}
+                  {filtered.map((u) => {
+                    const userDisplayName = getUserDisplayName(u);
+                    const meta = getPlatformMeta(u.platform);
+                    const Icon = meta.icon;
+                    return (
+                      <tr
+                        key={u.id}
+                        onClick={() => openInspector(u)}
+                        className="hover:bg-blue-50/40 cursor-pointer transition-colors"
+                      >
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-3">
+                            {u.photoUrl ? (
+                              <img
+                                src={u.photoUrl}
+                                alt={userDisplayName}
+                                className="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-[#282A3D] shadow-xs shrink-0"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <div className="w-9 h-9 rounded-full bg-linear-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-xs shadow-xs shrink-0">
+                                {(userDisplayName || u.email || "U")[0].toUpperCase()}
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-extrabold text-slate-900 dark:text-white text-xs">{userDisplayName}</p>
+                              <p className="text-[10px] text-slate-400 dark:text-slate-300 font-mono">UID: {u.id.slice(0, 10)}...</p>
                             </div>
-                          )}
-                          <div>
-                            <p className="font-extrabold text-slate-900 dark:text-white text-xs">{u.displayName || "Reminda User"}</p>
-                            <p className="text-[10px] text-slate-400 dark:text-slate-300 font-mono">UID: {u.id.slice(0, 10)}...</p>
                           </div>
-                        </div>
-                      </td>
+                        </td>
 
-                      <td className="py-4 px-6 text-slate-600 dark:text-slate-400 font-mono text-xs">
-                        {u.email || "Anonymous Account"}
-                      </td>
+                        <td className="py-4 px-6 text-slate-600 dark:text-slate-400 font-mono text-xs">
+                          {u.email || "Anonymous Account"}
+                        </td>
 
-                      <td className="py-4 px-6 text-slate-500 dark:text-slate-400 text-xs">
-                        <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-[#25273A] text-slate-700 dark:text-slate-300 font-bold text-[10px]">
-                          {u.platform || "Android"} • {u.appVersion || "v1.0.0"}
-                        </span>
-                      </td>
+                        <td className="py-4 px-6 text-xs">
+                          <div className="flex flex-col gap-1 items-start">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl font-bold text-[11px] border shadow-2xs ${meta.badgeStyle}`}>
+                              <Icon className="w-3.5 h-3.5 shrink-0" />
+                              <span>{meta.badgeText}</span>
+                            </span>
+                            <span className="font-mono text-[10px] text-slate-400 dark:text-slate-300 pl-1 font-semibold">
+                              {u.appVersion || "v1.0.0"}
+                            </span>
+                          </div>
+                        </td>
 
-                      <td className="py-4 px-6 font-mono text-slate-400 text-[11px]">
-                        {u.id}
-                      </td>
+                        <td className="py-4 px-6 font-mono text-slate-400 text-[11px]">
+                          {u.id}
+                        </td>
 
-                      <td className="py-4 px-6 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <span className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-[11px] inline-flex items-center gap-1 transition-colors">
-                            <span>Inspect</span>
-                            <ChevronRight className="w-3.5 h-3.5" />
-                          </span>
+                        <td className="py-4 px-6 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-[11px] inline-flex items-center gap-1 transition-colors">
+                              <span>Inspect</span>
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </span>
 
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleteTarget({ id: u.id, name: u.displayName || u.email || "User" });
-                            }}
-                            className="p-1.5 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                            title="Delete User Record"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteTarget({ id: u.id, name: userDisplayName });
+                              }}
+                              className="p-1.5 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                              title="Delete User Record"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -299,21 +442,35 @@ export default function UsersPage() {
                   {inspectingUser.photoUrl ? (
                     <img
                       src={inspectingUser.photoUrl}
-                      alt={inspectingUser.displayName || "User"}
+                      alt={getUserDisplayName(inspectingUser)}
                       className="w-12 h-12 rounded-2xl object-cover border border-slate-200 dark:border-[#282A3D] shadow-md shadow-blue-500/20 shrink-0"
                       referrerPolicy="no-referrer"
                     />
                   ) : (
                     <div className="w-12 h-12 rounded-2xl bg-linear-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-sm shadow-md shadow-blue-500/20 shrink-0">
-                      {(inspectingUser.displayName || inspectingUser.email || "U")[0].toUpperCase()}
+                      {(getUserDisplayName(inspectingUser) || inspectingUser.email || "U")[0].toUpperCase()}
                     </div>
                   )}
                   <div>
-                    <h3 className="font-extrabold text-base text-slate-900 dark:text-white">{inspectingUser.displayName || "User"}</h3>
+                    <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
+                      {getUserDisplayName(inspectingUser)}
+                    </h3>
                     <p className="text-xs text-slate-400 dark:text-slate-300 font-mono flex items-center gap-1.5">
                       <Mail className="w-3.5 h-3.5" />
                       {inspectingUser.email}
                     </p>
+                    {(() => {
+                      const meta = getPlatformMeta(inspectingUser.platform);
+                      const Icon = meta.icon;
+                      return (
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[10px] font-bold border ${meta.badgeStyle}`}>
+                            <Icon className="w-3.5 h-3.5" />
+                            <span>{meta.fullLabel}</span>
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -326,18 +483,31 @@ export default function UsersPage() {
               </div>
 
               {/* Statistics summary */}
-              <div className="grid grid-cols-3 gap-3 text-xs">
-                <div className="p-3.5 rounded-2xl bg-blue-50/60 border border-blue-100/80">
-                  <p className="font-bold text-blue-700 text-[10px] uppercase tracking-wider">Schedule Profiles</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div className="p-3.5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/40 border border-blue-100/80 dark:border-blue-900/60">
+                  <p className="font-bold text-blue-700 dark:text-blue-300 text-[10px] uppercase tracking-wider">Schedule Profiles</p>
                   <p className="text-lg font-black text-slate-900 dark:text-white mt-0.5">{userProfiles.length}</p>
                 </div>
-                <div className="p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-100/80">
-                  <p className="font-bold text-emerald-700 text-[10px] uppercase tracking-wider">Total Active Classes</p>
+                <div className="p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-100/80 dark:border-emerald-900/60">
+                  <p className="font-bold text-emerald-700 dark:text-emerald-300 text-[10px] uppercase tracking-wider">Total Active Classes</p>
                   <p className="text-lg font-black text-slate-900 dark:text-white mt-0.5">{userSchedules.length}</p>
                 </div>
-                <div className="p-3.5 rounded-2xl bg-purple-50/60 border border-purple-100/80">
-                  <p className="font-bold text-purple-700 text-[10px] uppercase tracking-wider">App Version</p>
-                  <p className="text-lg font-black text-slate-900 dark:text-white mt-0.5">{inspectingUser.appVersion || "v1.0.0+8"}</p>
+                <div className="p-3.5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-100/80 dark:border-indigo-900/60">
+                  <p className="font-bold text-indigo-700 dark:text-indigo-300 text-[10px] uppercase tracking-wider">Device & Client</p>
+                  {(() => {
+                    const meta = getPlatformMeta(inspectingUser.platform);
+                    const Icon = meta.icon;
+                    return (
+                      <div className="flex items-center gap-1.5 mt-1 font-black text-slate-900 dark:text-white text-xs">
+                        <Icon className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                        <span className="truncate">{meta.badgeText}</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+                <div className="p-3.5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/40 border border-purple-100/80 dark:border-purple-900/60">
+                  <p className="font-bold text-purple-700 dark:text-purple-300 text-[10px] uppercase tracking-wider">App Version</p>
+                  <p className="text-lg font-black text-slate-900 dark:text-white mt-0.5 font-mono">{inspectingUser.appVersion || "v1.0.0+15"}</p>
                 </div>
               </div>
 

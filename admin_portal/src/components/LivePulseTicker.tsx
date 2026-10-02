@@ -18,6 +18,7 @@ import {
   ArrowUpRight, 
   Sparkles
 } from "lucide-react";
+import { getUserDisplayName, getPlatformMeta } from "@/app/users/page";
 
 export type PulseEventType = "user" | "feedback" | "ai_sample" | "announcement";
 
@@ -123,23 +124,25 @@ export function LivePulseTicker({
     // 1. User Events
     users.forEach((u) => {
       const ts = extractMillis(u.lastSyncAt || u.lastActive || u.createdAt || u.updatedAt);
-      const name = u.displayName || u.email?.split("@")[0] || "Mobile User";
+      const name = getUserDisplayName(u);
       const isGuest = (u as any).isGuest;
-      const platform = u.platform || "Android";
+      const meta = getPlatformMeta(u.platform);
 
       list.push({
         id: `user-${u.id}`,
         type: "user",
         title: `${name} ${isGuest ? "(Guest)" : "synced account"}`,
-        subtitle: `Active on ${platform} • App ${u.appVersion || "v1.0.0+8"}`,
+        subtitle: `Active on ${meta.fullLabel} • App ${u.appVersion || "v1.0.0+15"}`,
         timestamp: ts,
-        badge: isGuest ? "Guest Sync" : "Registered User",
-        badgeColor: "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200/50",
-        iconColor: "text-emerald-500",
-        bgColor: "bg-emerald-500/10",
+        badge: isGuest ? "Guest Sync" : meta.badgeText,
+        badgeColor: meta.type === "desktop"
+          ? "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-blue-200/50"
+          : "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200/50",
+        iconColor: meta.type === "desktop" ? "text-blue-500" : "text-emerald-500",
+        bgColor: meta.type === "desktop" ? "bg-blue-500/10" : "bg-emerald-500/10",
         targetUrl: "/users",
         avatarUrl: u.photoUrl || userPhotos[u.id] || (u.email ? userPhotos[u.email.toLowerCase().trim()] : null),
-        extraMeta: platform,
+        extraMeta: meta.label,
       });
     });
 

@@ -40,11 +40,53 @@ class UserSyncService {
       final userId = user?.uid ?? 'guest_$devId';
 
       final box = await Hive.openBox('app_settings_box');
-      final cachedName = box.get('userName', defaultValue: isGuest ? 'Guest ($devId)' : 'Reminda User') as String;
-      final cachedEmail = box.get('userEmail', defaultValue: isGuest ? 'guest_$devId@reminda.app' : '') as String;
+      final cachedName = (box.get('userName') as String?)?.trim();
+      final cachedEmail = (box.get('userEmail') as String?)?.trim();
+      final cachedPhoto = (box.get('userPhotoUrl') as String?)?.trim();
 
-      final displayName = user?.displayName ?? (cachedName.isNotEmpty ? cachedName : 'Reminda User');
-      final email = user?.email ?? (cachedEmail.isNotEmpty ? cachedEmail : 'guest_$devId@reminda.app');
+      final rawUserDisplayName = user?.displayName?.trim();
+
+      String displayName;
+      if (rawUserDisplayName != null &&
+          rawUserDisplayName.isNotEmpty &&
+          rawUserDisplayName != 'User' &&
+          rawUserDisplayName != 'Reminda User') {
+        displayName = rawUserDisplayName;
+      } else if (cachedName != null &&
+          cachedName.isNotEmpty &&
+          cachedName != 'User' &&
+          cachedName != 'Reminda User') {
+        displayName = cachedName;
+      } else if (user?.email != null && user!.email!.contains('@')) {
+        displayName = _formatNameFromEmail(user.email!);
+      } else if (cachedEmail != null && cachedEmail.contains('@') && !cachedEmail.startsWith('guest_')) {
+        displayName = _formatNameFromEmail(cachedEmail);
+      } else {
+        displayName = isGuest ? 'Guest ($devId)' : 'Reminda User';
+      }
+
+      final email = (user?.email != null && user!.email!.isNotEmpty)
+          ? user.email!
+          : (cachedEmail != null && cachedEmail.isNotEmpty
+              ? cachedEmail
+              : 'guest_$devId@reminda.app');
+
+      final photoUrl = (user?.photoURL != null && user!.photoURL!.isNotEmpty)
+          ? user.photoURL!
+          : (cachedPhoto ?? '');
+
+      // Keep Firebase Auth profile in sync if missing
+      if (user != null && (user.displayName == null || user.displayName!.isEmpty || user.displayName == 'User' || user.displayName == 'Reminda User')) {
+        if (displayName != 'Reminda User' && !displayName.startsWith('Guest')) {
+          try {
+            await user.updateDisplayName(displayName);
+            if (photoUrl.isNotEmpty && (user.photoURL == null || user.photoURL!.isEmpty)) {
+              await user.updatePhotoURL(photoUrl);
+            }
+            await user.reload();
+          } catch (_) {}
+        }
+      }
 
       // 1. Sync User Document
       final userDocRef = _firestore.collection('users').doc(userId);
@@ -52,7 +94,7 @@ class UserSyncService {
         'id': userId,
         'displayName': displayName,
         'email': email,
-        'photoUrl': user?.photoURL ?? '',
+        'photoUrl': photoUrl,
         'platform': defaultTargetPlatform.name,
         'appVersion': AppVersion.fullVersion,
         'isGuest': isGuest,
@@ -103,5 +145,17 @@ class UserSyncService {
     } catch (e) {
       debugPrint('UserSyncService: Sync warning ($e)');
     }
+  }
+
+  static String _formatNameFromEmail(String email) {
+    if (!email.contains('@')) return email;
+    final handle = email.split('@').first;
+    final parts = handle
+        .replaceAll(RegExp(r'[._\-]'), ' ')
+        .split(' ')
+        .where((s) => s.isNotEmpty)
+        .map((s) => s[0].toUpperCase() + s.substring(1).toLowerCase())
+        .toList();
+    return parts.isNotEmpty ? parts.join(' ') : handle;
   }
 }

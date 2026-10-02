@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../../firebase_options.dart';
@@ -141,18 +142,103 @@ class DesktopGoogleAuthService {
         return null;
       }
 
+      // Decode Google OpenID Connect claims (name, picture, email) from id_token JWT
+      String? googleName;
+      String? googlePhoto;
+      final payload = _decodeJwtPayload(idToken);
+      if (payload != null) {
+        googleName = payload['name'] as String?;
+        googlePhoto = payload['picture'] as String?;
+      }
+
+      // Fallback: Query Google UserInfo API if name was not present in JWT
+      if ((googleName == null || googleName.trim().isEmpty) &&
+          accessToken != null &&
+          accessToken.isNotEmpty) {
+        try {
+          final userInfoRes = await http.get(
+            Uri.parse('https://www.googleapis.com/oauth2/v3/userinfo'),
+            headers: {'Authorization': 'Bearer $accessToken'},
+          );
+          if (userInfoRes.statusCode == 200) {
+            final info = jsonDecode(userInfoRes.body) as Map<String, dynamic>;
+            googleName ??= info['name'] as String?;
+            googlePhoto ??= info['picture'] as String?;
+          }
+        } catch (e) {
+          debugPrint('DesktopGoogleAuthService: UserInfo fetch notice: $e');
+        }
+      }
+
       // 5. Sign in to Firebase Auth using GoogleAuthProvider.credential
       final credential = GoogleAuthProvider.credential(
         idToken: idToken,
         accessToken: accessToken,
       );
 
-      return await FirebaseAuth.instance.signInWithCredential(credential);
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final user = userCredential.user;
+
+      if (user != null) {
+        final cleanName = googleName?.trim();
+        final cleanPhoto = googlePhoto?.trim();
+
+        // 1. Update Firebase Auth user display name and photo
+        try {
+          if (cleanName != null && cleanName.isNotEmpty && (user.displayName == null || user.displayName!.isEmpty)) {
+            await user.updateDisplayName(cleanName);
+          }
+          if (cleanPhoto != null && cleanPhoto.isNotEmpty && (user.photoURL == null || user.photoURL!.isEmpty)) {
+            await user.updatePhotoURL(cleanPhoto);
+          }
+          await user.reload();
+        } catch (e) {
+          debugPrint('DesktopGoogleAuthService: Profile update warning: $e');
+        }
+
+        // 2. Cache Google profile directly into Hive for immediate UI and telemetry availability
+        try {
+          final box = await Hive.openBox('app_settings_box');
+          if (cleanName != null && cleanName.isNotEmpty) {
+            await box.put('userName', cleanName);
+          }
+          if (cleanPhoto != null && cleanPhoto.isNotEmpty) {
+            await box.put('userPhotoUrl', cleanPhoto);
+          }
+        } catch (e) {
+          debugPrint('DesktopGoogleAuthService: Hive cache warning: $e');
+        }
+      }
+
+      return userCredential;
     } catch (e, st) {
       debugPrint('DesktopGoogleAuthService error: $e\n$st');
       return null;
     } finally {
       await server?.close(force: true);
+    }
+  }
+
+  /// Decodes standard JWT payload without requiring external crypto packages
+  static Map<String, dynamic>? _decodeJwtPayload(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length < 2) return null;
+      var payload = parts[1];
+      switch (payload.length % 4) {
+        case 2:
+          payload += '==';
+          break;
+        case 3:
+          payload += '=';
+          break;
+      }
+      final decodedBytes = base64Url.decode(payload);
+      final jsonStr = utf8.decode(decodedBytes);
+      return jsonDecode(jsonStr) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('DesktopGoogleAuthService: Failed to parse JWT payload: $e');
+      return null;
     }
   }
 }

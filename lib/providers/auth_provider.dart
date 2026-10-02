@@ -95,12 +95,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _box.put('isLoggedIn', false);
     }
 
+    final rawDisplayName = currentUser?.displayName?.trim();
+    final rawCachedName = (cachedName.isNotEmpty && cachedName != 'User' && cachedName != 'Reminda User') ? cachedName : null;
+    final fallbackFromEmail = (currentUser?.email != null && currentUser!.email!.contains('@'))
+        ? _formatNameFromEmail(currentUser.email!)
+        : (isGuestMode ? 'Guest User' : 'User');
+    final initialName = (rawDisplayName != null && rawDisplayName.isNotEmpty && rawDisplayName != 'User' && rawDisplayName != 'Reminda User')
+        ? rawDisplayName
+        : (rawCachedName ?? fallbackFromEmail);
+
     state = AuthState(
       isOnboarded: onboarded,
       isLoggedIn: loggedIn,
       isGuest: isGuestMode,
       userId: currentUser?.uid,
-      userName: currentUser?.displayName ?? (cachedName.isNotEmpty ? cachedName : 'User'),
+      userName: initialName,
       userEmail: currentUser?.email ?? cachedEmail,
       userPhotoUrl: (customPhoto != null && customPhoto.isNotEmpty)
           ? customPhoto
@@ -110,13 +119,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
     // Listen to Firebase Auth state changes in realtime
     _authSubscription = _firebaseAuth.authStateChanges().listen((user) async {
       if (user != null) {
-        final name = user.displayName ?? (user.email?.split('@').first ?? 'User');
+        final currentCachedName = _box.get('userName') as String?;
+        final rawUserDisplay = user.displayName?.trim();
+        final name = (rawUserDisplay != null && rawUserDisplay.isNotEmpty && rawUserDisplay != 'User' && rawUserDisplay != 'Reminda User')
+            ? rawUserDisplay
+            : (currentCachedName != null && currentCachedName.trim().isNotEmpty && currentCachedName != 'User' && currentCachedName != 'Reminda User'
+                ? currentCachedName.trim()
+                : (user.email != null && user.email!.contains('@')
+                    ? _formatNameFromEmail(user.email!)
+                    : 'User'));
         final email = user.email ?? 'user@example.com';
         final savedCustomPhoto = _box.get('userCustomPhotoUrl') as String?;
         final effectivePhoto =
             (savedCustomPhoto != null && savedCustomPhoto.isNotEmpty)
                 ? savedCustomPhoto
-                : user.photoURL;
+                : (user.photoURL ?? _box.get('userPhotoUrl') as String?);
 
         await _box.put('isGuestLogin', false);
         await _box.put('isLoggedIn', true);
@@ -298,9 +315,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
 
       if (user != null) {
-        final name = user.displayName ?? (user.email?.split('@').first ?? 'Google User');
+        final currentCached = _box.get('userName') as String?;
+        final rawDisplay = user.displayName?.trim();
+        final name = (rawDisplay != null && rawDisplay.isNotEmpty && rawDisplay != 'User' && rawDisplay != 'Reminda User')
+            ? rawDisplay
+            : (currentCached != null && currentCached.trim().isNotEmpty && currentCached != 'User' && currentCached != 'Reminda User'
+                ? currentCached.trim()
+                : (user.email != null && user.email!.contains('@')
+                    ? _formatNameFromEmail(user.email!)
+                    : 'Google User'));
+
         final email = user.email ?? '';
-        final photo = user.photoURL;
+        final cachedPhoto = _box.get('userPhotoUrl') as String?;
+        final photo = (user.photoURL != null && user.photoURL!.isNotEmpty) ? user.photoURL : cachedPhoto;
 
         await _box.put('isGuestLogin', false);
         await _box.put('isLoggedIn', true);
@@ -502,6 +529,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     // 5. Default clean fallback
     return 'Google Sign-In could not connect. Please check your connection or Continue as Guest.';
+  }
+
+  static String _formatNameFromEmail(String email) {
+    if (!email.contains('@')) return email;
+    final handle = email.split('@').first;
+    final parts = handle
+        .replaceAll(RegExp(r'[._\-]'), ' ')
+        .split(' ')
+        .where((s) => s.isNotEmpty)
+        .map((s) => s[0].toUpperCase() + s.substring(1).toLowerCase())
+        .toList();
+    return parts.isNotEmpty ? parts.join(' ') : handle;
   }
 
   String _mapFirebaseError(String code, String? defaultMsg) {
