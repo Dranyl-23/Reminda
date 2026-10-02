@@ -133,7 +133,7 @@ export default function WebsiteCMSPage() {
 
           <div className="flex items-center gap-3">
             <a
-              href="http://localhost:3005"
+              href={process.env.NEXT_PUBLIC_LANDING_URL || "https://getreminda.vercel.app"}
               target="_blank"
               rel="noopener noreferrer"
               className="px-4 py-2 rounded-2xl border border-slate-200 dark:border-[#202231] hover:bg-slate-50 dark:hover:bg-[#1C1D2B] text-slate-700 dark:text-slate-300 font-bold text-xs transition-colors flex items-center gap-1.5"
