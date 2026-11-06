@@ -20,6 +20,7 @@ flutter build windows --release --no-tree-shake-icons
 $iscc = Get-Command "iscc" -ErrorAction SilentlyContinue
 if (-not $iscc) {
     $potentialPaths = @(
+        "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
         "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
         "C:\Program Files\Inno Setup 6\ISCC.exe"
     )
