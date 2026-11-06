@@ -22,12 +22,7 @@ export default function Home() {
         <HowItWorks />
         <DownloadHub />
         <FaqSection />
-        <Footer
-          copyrightText={defaultMarketingConfig.footer.copyrightText}
-          githubUrl={defaultMarketingConfig.footer.githubUrl}
-          primaryButtonUrl={defaultMarketingConfig.hero.primaryButtonUrl}
-          versionBadge={defaultMarketingConfig.hero.versionBadge}
-        />
+        <Footer />
       </div>
     </MarketingConfigProvider>
   );

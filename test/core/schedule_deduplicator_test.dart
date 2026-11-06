@@ -108,5 +108,44 @@ void main() {
       expect(result.kept.length, equals(2));
       expect(result.removed.length, equals(1));
     });
+
+    test('strict mode does not treat abbreviation / same-slot entries as duplicates', () {
+      expect(ScheduleDeduplicator.areDuplicates(entry1, entry3Descriptive, strict: true), isFalse);
+      expect(ScheduleDeduplicator.areDuplicates(entry1, entryCrossProfileDuplicate, strict: true), isFalse);
+    });
+
+    test('strict mode still removes exact title duplicates', () {
+      expect(ScheduleDeduplicator.areDuplicates(entry1, entry2, strict: true), isTrue);
+      final result = ScheduleDeduplicator.deduplicate(
+        [entry1, entry2, entry3Descriptive],
+        strict: true,
+      );
+      expect(result.kept.length, equals(2));
+      expect(result.removed.length, equals(1));
+    });
+
+    test('very short titles do not match as substrings of unrelated titles', () {
+      final shortTitle = ScheduleEntry(
+        id: 'id-short',
+        profileId: 'school-1',
+        title: 'A',
+        category: ScheduleCategory.custom,
+        daysOfWeek: [1],
+        startTime: '16:00',
+        endTime: '18:00',
+        location: 'Room 1',
+      );
+      final other = ScheduleEntry(
+        id: 'id-other',
+        profileId: 'work-1',
+        title: 'Art History',
+        category: ScheduleCategory.workShift,
+        daysOfWeek: [1],
+        startTime: '16:00',
+        endTime: '18:00',
+        location: 'Room 2',
+      );
+      expect(ScheduleDeduplicator.areDuplicates(shortTitle, other), isFalse);
+    });
   });
 }

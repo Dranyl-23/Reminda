@@ -7,5 +7,5 @@ class AppConstants {
 
   /// Direct Latest APK Release Download
   static const String directApkDownloadUrl =
-      'https://github.com/Dranyl-23/Reminda/releases/latest/download/app-arm64-v8a-release.apk';
+      'https://github.com/Dranyl-23/Reminda/releases/download/v1.0.0%2B16/app-arm64-v8a-release.apk';
 }

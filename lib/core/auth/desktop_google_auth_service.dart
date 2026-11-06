@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -10,21 +11,35 @@ import '../../firebase_options.dart';
 
 /// Secure Desktop OAuth 2.0 Loopback Provider for Windows & Linux
 ///
-/// Implements RFC 8252 (OAuth 2.0 for Native Apps) using an ephemeral
-/// local loopback server and Firebase Identity Toolkit.
+/// Implements RFC 8252 (OAuth 2.0 for Native Apps) using a local loopback
+/// server and Firebase Identity Toolkit.
 class DesktopGoogleAuthService {
+  static const List<int> _candidatePorts = [8080, 8085, 8888, 0];
+
+  static String _generateSessionId() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(24, (_) => random.nextInt(256));
+    return base64UrlEncode(bytes).replaceAll('=', '');
+  }
+
   static Future<UserCredential?> signIn() async {
     HttpServer? server;
     try {
-      // 1. Bind local loopback server on port 8080 (standard OAuth desktop port)
+      // 1. Bind local loopback server on deterministic candidate ports first
       int port = 8080;
-      try {
-        server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
-      } catch (_) {
-        server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-        port = server.port;
+      for (final candidate in _candidatePorts) {
+        try {
+          server = await HttpServer.bind(InternetAddress.loopbackIPv4, candidate);
+          port = server.port;
+          break;
+        } catch (_) {}
+      }
+      if (server == null) {
+        debugPrint('DesktopGoogleAuthService: Failed to bind loopback server');
+        return null;
       }
       final redirectUri = 'http://localhost:$port';
+      final sessionId = _generateSessionId();
 
       // 2. Request Auth URI from Firebase Identity Toolkit
       final apiKey = DefaultFirebaseOptions.windows.apiKey;
@@ -34,6 +49,7 @@ class DesktopGoogleAuthService {
         body: jsonEncode({
           'providerId': 'google.com',
           'continueUri': redirectUri,
+          'sessionId': sessionId,
         }),
       );
 
@@ -138,15 +154,28 @@ class DesktopGoogleAuthService {
       final accessToken = params['access_token'];
 
       if (idToken == null || idToken.isEmpty) {
-        debugPrint('DesktopGoogleAuthService: id_token not found in callback params: $params');
+        debugPrint('DesktopGoogleAuthService: id_token not found in callback params');
         return null;
       }
 
-      // Decode Google OpenID Connect claims (name, picture, email) from id_token JWT
+      // Decode and validate Google OpenID Connect claims (iss, exp, name, picture) from id_token JWT
       String? googleName;
       String? googlePhoto;
       final payload = _decodeJwtPayload(idToken);
       if (payload != null) {
+        final iss = payload['iss'] as String?;
+        if (iss != 'https://accounts.google.com' && iss != 'accounts.google.com') {
+          debugPrint('DesktopGoogleAuthService: Invalid JWT issuer: $iss');
+          return null;
+        }
+        final exp = payload['exp'];
+        if (exp is num) {
+          final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+          if (exp.toInt() < nowSec - 60) {
+            debugPrint('DesktopGoogleAuthService: Expired id_token received');
+            return null;
+          }
+        }
         googleName = payload['name'] as String?;
         googlePhoto = payload['picture'] as String?;
       }

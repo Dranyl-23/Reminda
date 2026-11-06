@@ -10,14 +10,14 @@ class AiTrainingTelemetryService {
   static const String settingsBox = 'app_settings_box';
   static const String contributeKey = 'contribute_ai_training_data';
 
-  /// Check if user has opted-in to anonymous AI training telemetry (default true)
+  /// Check if user has explicitly opted-in to anonymous AI training telemetry (default false)
   static bool isTelemetryEnabled() {
     try {
       if (Hive.isBoxOpen(settingsBox)) {
-        return Hive.box(settingsBox).get(contributeKey, defaultValue: true) as bool;
+        return Hive.box(settingsBox).get(contributeKey, defaultValue: false) as bool;
       }
     } catch (_) {}
-    return true;
+    return false;
   }
 
   /// Toggle user consent
@@ -30,6 +30,14 @@ class AiTrainingTelemetryService {
     } catch (e) {
       debugPrint('AiTrainingTelemetryService: Failed to save consent: $e');
     }
+  }
+
+  /// Redacts emails, phone numbers, and 6+ digit student/employee IDs from raw OCR text
+  static String _redactPii(String input) {
+    if (input.isEmpty) return '';
+    return input
+        .replaceAll(RegExp(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'), '[EMAIL]')
+        .replaceAll(RegExp(r'\b\d{2,4}[-\s]?\d{5,10}\b'), '[ID]');
   }
 
   /// Anonymously record user-verified ground-truth schedule sample for future offline AI training
@@ -51,18 +59,22 @@ class AiTrainingTelemetryService {
         'endTime': e.endTime,
         'location': e.location ?? '',
         'category': e.category.name,
-        'notes': e.notes ?? '',
+        'notes': '',
       }).toList();
+
+      final platformName = kIsWeb
+          ? 'Web'
+          : (Platform.isAndroid ? 'Android' : (Platform.isIOS ? 'iOS' : 'Other'));
 
       final payload = {
         'entriesCount': entries.length,
         'verifiedEntries': sampleEntries,
-        'rawOcrText': rawOcrText ?? '',
+        'rawOcrText': _redactPii(rawOcrText ?? ''),
         'institutionName': institutionName ?? '',
         'role': role ?? 'general',
         'engineSource': source,
         'appVersion': AppVersion.fullVersion,
-        'platform': Platform.isAndroid ? 'Android' : (Platform.isIOS ? 'iOS' : 'Other'),
+        'platform': platformName,
         'timestamp': FieldValue.serverTimestamp(),
         'createdAtIso': DateTime.now().toIso8601String(),
       };

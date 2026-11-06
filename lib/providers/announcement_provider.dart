@@ -1,11 +1,11 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/database/firestore_instance.dart';
 import '../models/announcement.dart';
 
 final dismissedAnnouncementsProvider = StateProvider<Set<String>>((ref) => {});
 
 final activeAnnouncementsStreamProvider = StreamProvider<List<AnnouncementModel>>((ref) {
-  final firestore = FirebaseFirestore.instance;
+  final firestore = appFirestore;
   return firestore
       .collection('announcements')
       .where('isActive', isEqualTo: true)

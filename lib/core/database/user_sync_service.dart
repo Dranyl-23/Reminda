@@ -5,14 +5,13 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../constants/app_version.dart';
-import 'profile_repository.dart';
-import 'schedule_repository.dart';
+import 'firestore_instance.dart';
 
 class UserSyncService {
   UserSyncService._();
   static final UserSyncService instance = UserSyncService._();
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore = appFirestore;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   /// Generate or retrieve stable device installation ID
@@ -88,8 +87,13 @@ class UserSyncService {
         }
       }
 
-      // 1. Sync User Document
+      // 1. Sync User Document (profile + telemetry only).
+      // NOTE: schedules & profiles are intentionally NOT mirrored here. They are
+      // owned by FirestoreSyncService, which uses per-item `updatedAt` (epoch ms)
+      // for conflict resolution. Rewriting them here with a server timestamp made
+      // cloud copies look newer than unsynced local edits and lost those edits.
       final userDocRef = _firestore.collection('users').doc(userId);
+      final existing = await userDocRef.get();
       await userDocRef.set({
         'id': userId,
         'displayName': displayName,
@@ -99,49 +103,11 @@ class UserSyncService {
         'appVersion': AppVersion.fullVersion,
         'isGuest': isGuest,
         'lastActiveAt': FieldValue.serverTimestamp(),
-        'createdAt': FieldValue.serverTimestamp(),
+        // Only stamp creation time the first time the document is created.
+        if (!existing.exists) 'createdAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
       debugPrint('UserSyncService: Synced user telemetry ($userId) to cloud.');
-
-      // 2. Sync Profiles in background
-      final profileRepo = ProfileRepository();
-      await profileRepo.init();
-      final profiles = profileRepo.getAllProfiles();
-
-      for (final p in profiles) {
-        await userDocRef.collection('profiles').doc(p.id).set({
-          'id': p.id,
-          'name': p.name,
-          'type': p.type,
-          'colorHex': p.colorHex,
-          'isActive': p.isActive,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-      }
-
-      // 3. Sync Schedules in background
-      final scheduleRepo = ScheduleRepository();
-      await scheduleRepo.init();
-      final schedules = scheduleRepo.getAllSchedules();
-
-      for (final s in schedules) {
-        await userDocRef.collection('schedules').doc(s.id).set({
-          'id': s.id,
-          'title': s.title,
-          'profileId': s.profileId,
-          'daysOfWeek': s.daysOfWeek,
-          'startTime': s.startTime,
-          'endTime': s.endTime,
-          'location': s.location,
-          'category': s.category.name,
-          'notes': s.notes,
-          'colorHex': s.colorHex,
-          'reminders': s.reminders,
-          'isActive': s.isActive,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-      }
     } catch (e) {
       debugPrint('UserSyncService: Sync warning ($e)');
     }

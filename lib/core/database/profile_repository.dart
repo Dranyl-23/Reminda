@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../models/schedule_profile.dart';
 import '../utils/hive_encryption_helper.dart';
@@ -27,29 +26,14 @@ class ProfileRepository {
     if (Hive.isBoxOpen(boxName)) {
       _box = Hive.box<String>(boxName);
     } else {
-      HiveAesCipher? cipher;
-      try {
-        cipher = await HiveEncryptionHelper.getCipher();
-      } catch (e) {
-        debugPrint('ProfileRepository: Encryption cipher lookup failed: $e');
-      }
-
-      if (cipher != null) {
-        try {
-          _box = await Hive.openBox<String>(boxName, encryptionCipher: cipher);
-        } catch (e) {
-          debugPrint(
-            'ProfileRepository: Encrypted open failed ($e), opening unencrypted box for backward compatibility',
-          );
-          _box = await Hive.openBox<String>(boxName);
-        }
-      } else {
-        _box = await Hive.openBox<String>(boxName);
-      }
+      // Safe open: strict encrypted open, backup + legacy plaintext migration.
+      // Never reopens an encrypted box as plaintext (which could truncate it).
+      _box = await HiveEncryptionHelper.openSecureBox(boxName);
     }
 
     // If empty, initialize default profiles from design
     if (_box!.isEmpty) {
+      final epochZero = DateTime.fromMillisecondsSinceEpoch(0);
       final defaultProfiles = [
         ScheduleProfile(
           id: 'school-profile-1',
@@ -57,6 +41,7 @@ class ProfileRepository {
           type: 'school',
           colorHex: '#2563EB',
           isActive: true,
+          updatedAt: epochZero,
         ),
         ScheduleProfile(
           id: 'work-profile-2',
@@ -64,6 +49,7 @@ class ProfileRepository {
           type: 'work',
           colorHex: '#F97316',
           isActive: false,
+          updatedAt: epochZero,
         ),
         ScheduleProfile(
           id: 'duty-profile-3',
@@ -71,6 +57,7 @@ class ProfileRepository {
           type: 'duty',
           colorHex: '#10B981',
           isActive: false,
+          updatedAt: epochZero,
         ),
       ];
 
@@ -146,6 +133,7 @@ class ProfileRepository {
 
   Future<void> resetDefaultProfiles() async {
     await clearAll();
+    final epochZero = DateTime.fromMillisecondsSinceEpoch(0);
     final defaultProfiles = [
       ScheduleProfile(
         id: 'school-profile-1',
@@ -153,6 +141,7 @@ class ProfileRepository {
         type: 'school',
         colorHex: '#2563EB',
         isActive: true,
+        updatedAt: epochZero,
       ),
       ScheduleProfile(
         id: 'work-profile-2',
@@ -160,6 +149,7 @@ class ProfileRepository {
         type: 'work',
         colorHex: '#F97316',
         isActive: false,
+        updatedAt: epochZero,
       ),
       ScheduleProfile(
         id: 'duty-profile-3',
@@ -167,11 +157,13 @@ class ProfileRepository {
         type: 'duty',
         colorHex: '#10B981',
         isActive: false,
+        updatedAt: epochZero,
       ),
     ];
 
     for (final p in defaultProfiles) {
       await _safeBox.put(p.id, jsonEncode(p.toJson()));
     }
+    _cachedProfiles = List<ScheduleProfile>.unmodifiable(defaultProfiles);
   }
 }

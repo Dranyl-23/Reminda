@@ -31,8 +31,8 @@ export function HeroSection() {
   const { config } = useMarketingConfig();
   const { hero, downloadHub } = config;
 
-  const windowsDownloadUrl = downloadHub.windowsUrl || "https://github.com/Dranyl-23/Reminda/releases/latest/download/reminda-windows-x64.zip";
-  const universalApkUrl = downloadHub.universalApkUrl || "https://github.com/Dranyl-23/Reminda/releases/latest/download/app-arm64-v8a-release.apk";
+  const windowsDownloadUrl = downloadHub.windowsUrl || "https://github.com/Dranyl-23/Reminda/releases/download/v1.0.0%2B2/Reminda-Setup.exe";
+  const universalApkUrl = downloadHub.universalApkUrl || "https://github.com/Dranyl-23/Reminda/releases/download/v1.0.0%2B16/app-arm64-v8a-release.apk";
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -261,7 +261,7 @@ export function HeroSection() {
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 mx-auto w-48 h-48 flex items-center justify-center">
               <img
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=170x170&data=${encodeURIComponent(
-                  config.downloadHub.arm64ApkUrl || "https://github.com/Dranyl-23/Reminda/releases/latest/download/app-arm64-v8a-release.apk"
+                  config.downloadHub.arm64ApkUrl || "https://github.com/Dranyl-23/Reminda/releases/download/v1.0.0%2B16/app-arm64-v8a-release.apk"
                 )}`}
                 alt="Reminda APK Download QR Code"
                 className="w-40 h-40"

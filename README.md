@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" alt="Firebase"/>
   <img src="https://img.shields.io/badge/Google_ML_Kit-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="ML Kit"/>
   <img src="https://img.shields.io/badge/Gemini_AI-8E75C2?style=for-the-badge&logo=google&logoColor=white" alt="Gemini"/>
-  <img src="https://img.shields.io/badge/Version-v1.0.0+8-brightgreen?style=for-the-badge" alt="Version"/>
+  <img src="https://img.shields.io/badge/Version-v1.0.0+17-brightgreen?style=for-the-badge" alt="Version"/>
 </p>
 
 ---

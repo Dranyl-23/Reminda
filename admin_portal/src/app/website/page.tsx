@@ -312,7 +312,7 @@ export default function WebsiteCMSPage() {
                   type="text"
                   value={config.hero.primaryButtonUrl}
                   onChange={(e) => setConfig({ ...config, hero: { ...config.hero, primaryButtonUrl: e.target.value } })}
-                  placeholder="https://github.com/Dranyl-23/Reminda/releases/latest"
+                  placeholder="https://github.com/Dranyl-23/Reminda/releases/download/v1.0.0%2B16/app-arm64-v8a-release.apk"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-[#202231] bg-slate-50/50 dark:bg-[#1C1D2B] text-xs font-mono text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-600"
                 />
               </div>
@@ -432,7 +432,7 @@ export default function WebsiteCMSPage() {
                 type="text"
                 value={config.announcement.linkUrl}
                 onChange={(e) => setConfig({ ...config, announcement: { ...config.announcement, linkUrl: e.target.value } })}
-                placeholder="https://github.com/Dranyl-23/Reminda/releases/latest"
+                placeholder="https://github.com/Dranyl-23/Reminda/releases/tag/v1.0.0%2B16"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-[#202231] bg-slate-50/50 dark:bg-[#1C1D2B] text-xs font-mono text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-600"
               />
             </div>
@@ -492,14 +492,14 @@ export default function WebsiteCMSPage() {
                   type="text"
                   value={config.downloadHub.windowsUrl || ""}
                   onChange={(e) => setConfig({ ...config, downloadHub: { ...config.downloadHub, windowsUrl: e.target.value } })}
-                  placeholder="URL to Windows .zip / .exe"
+                  placeholder="https://github.com/Dranyl-23/Reminda/releases/download/v1.0.0%2B2/Reminda-Setup.exe"
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-[#202231] bg-slate-50/50 dark:bg-[#1C1D2B] text-[11px] font-mono text-slate-900 dark:text-white focus:outline-hidden"
                 />
                 <input
                   type="text"
                   value={config.downloadHub.windowsSize || ""}
                   onChange={(e) => setConfig({ ...config, downloadHub: { ...config.downloadHub, windowsSize: e.target.value } })}
-                  placeholder="~18 MB"
+                  placeholder="~39 MB"
                   className="w-24 px-2 py-1 rounded-md border border-slate-200 dark:border-[#202231] bg-slate-50/50 dark:bg-[#1C1D2B] text-[11px] font-mono text-slate-900 dark:text-white focus:outline-hidden"
                 />
               </div>
@@ -510,14 +510,14 @@ export default function WebsiteCMSPage() {
                   type="text"
                   value={config.downloadHub.universalApkUrl}
                   onChange={(e) => setConfig({ ...config, downloadHub: { ...config.downloadHub, universalApkUrl: e.target.value } })}
-                  placeholder="URL to Universal APK"
+                  placeholder="https://github.com/Dranyl-23/Reminda/releases/download/v1.0.0%2B16/app-arm64-v8a-release.apk"
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-[#202231] bg-slate-50/50 dark:bg-[#1C1D2B] text-[11px] font-mono text-slate-900 dark:text-white focus:outline-hidden"
                 />
                 <input
                   type="text"
                   value={config.downloadHub.universalApkSize}
                   onChange={(e) => setConfig({ ...config, downloadHub: { ...config.downloadHub, universalApkSize: e.target.value } })}
-                  placeholder="~58 MB"
+                  placeholder="~68 MB"
                   className="w-24 px-2 py-1 rounded-md border border-slate-200 dark:border-[#202231] bg-slate-50/50 dark:bg-[#1C1D2B] text-[11px] font-mono text-slate-900 dark:text-white focus:outline-hidden"
                 />
               </div>
@@ -528,14 +528,14 @@ export default function WebsiteCMSPage() {
                   type="text"
                   value={config.downloadHub.arm64ApkUrl}
                   onChange={(e) => setConfig({ ...config, downloadHub: { ...config.downloadHub, arm64ApkUrl: e.target.value } })}
-                  placeholder="URL to arm64 APK"
+                  placeholder="https://github.com/Dranyl-23/Reminda/releases/download/v1.0.0%2B16/app-arm64-v8a-release.apk"
                   className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-[#202231] bg-slate-50/50 dark:bg-[#1C1D2B] text-[11px] font-mono text-slate-900 dark:text-white focus:outline-hidden"
                 />
                 <input
                   type="text"
                   value={config.downloadHub.arm64ApkSize}
                   onChange={(e) => setConfig({ ...config, downloadHub: { ...config.downloadHub, arm64ApkSize: e.target.value } })}
-                  placeholder="~45 MB"
+                  placeholder="~68 MB"
                   className="w-24 px-2 py-1 rounded-md border border-slate-200 dark:border-[#202231] bg-slate-50/50 dark:bg-[#1C1D2B] text-[11px] font-mono text-slate-900 dark:text-white focus:outline-hidden"
                 />
               </div>

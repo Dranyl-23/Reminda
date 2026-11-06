@@ -180,7 +180,7 @@ class NotificationService {
     final androidImplementation = _notificationsPlugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
-    return (await androidImplementation?.requestExactAlarmsPermission()) ?? false;
+    return (await androidImplementation?.canScheduleExactNotifications()) ?? false;
   }
 
   String _getActiveToneId() {
@@ -195,22 +195,22 @@ class NotificationService {
     return toneId;
   }
 
-  /// Calculates a stable, deterministic integer ID for notification cancellation.
-  /// Uses a high-entropy 64-bit FNV-1a with bit mixer folded into 31-bit positive integer range
-  /// to eliminate hash collision risks across multi-day recurring reminders.
+  /// Calculates a stable, deterministic 31-bit positive integer ID for notification cancellation.
+  /// Uses 32-bit FNV-1a with a MurmurHash3 32-bit avalanche mixer so that it compiles cleanly
+  /// on both native 64-bit targets and Web (dart2js) while avoiding hash collisions.
   int _generateNotificationId(String entryId, int dayOfWeek, int leadMinutes) {
     final key = '$entryId:$dayOfWeek:$leadMinutes';
-    int hash = 0xcbf29ce484222325;
+    int hash = 0x811c9dc5;
     for (final codeUnit in key.codeUnits) {
       hash ^= codeUnit;
-      hash = (hash * 0x100000001b3) & 0x7FFFFFFFFFFFFFFF;
+      hash = (hash * 0x01000193) & 0xFFFFFFFF;
     }
-    // High-dispersion bit mixer to avoid clustering
-    hash ^= (hash >> 30);
-    hash = (hash * 0xbf58476d1ce4e5b9) & 0x7FFFFFFFFFFFFFFF;
-    hash ^= (hash >> 27);
-    hash = (hash * 0x94d049bb133111eb) & 0x7FFFFFFFFFFFFFFF;
-    hash ^= (hash >> 31);
+    // MurmurHash3 32-bit finalizer (fmix32) to prevent clustering
+    hash ^= (hash >> 16);
+    hash = (hash * 0x85ebca6b) & 0xFFFFFFFF;
+    hash ^= (hash >> 13);
+    hash = (hash * 0xc2b2ae35) & 0xFFFFFFFF;
+    hash ^= (hash >> 16);
     return hash & 0x7FFFFFFF;
   }
 
@@ -442,8 +442,11 @@ class NotificationService {
 
         final bool skippedImmediateWeek =
             scheduledDate.difference(tz.TZDateTime.now(tz.local)).inDays >= 7;
+        // Do not use weekly OS auto-repeat when mutedDates are configured or when
+        // the immediate week was skipped; otherwise the OS repeats weekly even on
+        // future muted dates.
         final DateTimeComponents? matchComponents =
-            (!kIsWeb && Platform.isIOS && skippedImmediateWeek)
+            (entry.mutedDates.isNotEmpty || skippedImmediateWeek)
                 ? null
                 : DateTimeComponents.dayOfWeekAndTime;
 
@@ -513,13 +516,33 @@ class NotificationService {
     }
   }
 
-  /// Reschedules all active entries in the database
+  List<ScheduleEntry>? _pendingRescheduleEntries;
+  bool _isRescheduling = false;
+
+  /// Reschedules all active entries in the database.
+  /// Serialized so concurrent calls do not race `cancelAll()` against `zonedSchedule()`.
   Future<void> rescheduleAll(List<ScheduleEntry> entries) async {
     if (kIsWeb || Platform.isWindows) return;
-    await _notificationsPlugin.cancelAll();
-    final activeEntries = entries.where((e) => e.isActive).toList();
-    await Future.wait(activeEntries.map((entry) => scheduleEntryReminders(entry)));
-    debugPrint('NotificationService: Successfully rescheduled ${activeEntries.length} active schedules.');
+    _pendingRescheduleEntries = List<ScheduleEntry>.from(entries);
+    if (_isRescheduling) return;
+    _isRescheduling = true;
+    try {
+      while (_pendingRescheduleEntries != null) {
+        final batch = _pendingRescheduleEntries!;
+        _pendingRescheduleEntries = null;
+        await _notificationsPlugin.cancelAll();
+        final activeEntries = batch.where((e) => e.isActive).toList();
+        for (final entry in activeEntries) {
+          if (_pendingRescheduleEntries != null) break;
+          await scheduleEntryReminders(entry);
+        }
+        if (_pendingRescheduleEntries == null) {
+          debugPrint('NotificationService: Successfully rescheduled ${activeEntries.length} active schedules.');
+        }
+      }
+    } finally {
+      _isRescheduling = false;
+    }
   }
 
   /// Cancel all scheduled alarms and notifications

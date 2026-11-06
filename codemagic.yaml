@@ -55,11 +55,10 @@ workflows:
         script: |
           flutter analyze
           flutter test
-      - name: Build Windows Release (keys baked in at compile time)
+      - name: Build Windows Release (configured with Server AI Proxy URL)
         script: |
           flutter build windows --release --no-tree-shake-icons `
-            --dart-define=GEMINI_API_KEY=$env:GEMINI_API_KEY `
-            --dart-define=GROQ_API_KEY=$env:GROQ_API_KEY
+            --dart-define=AI_PROXY_URL=$env:AI_PROXY_URL
     artifacts:
       - build\windows\x64\runner\Release\**
     publishing:

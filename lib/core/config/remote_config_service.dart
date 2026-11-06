@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../constants/app_version.dart';
+import '../database/firestore_instance.dart';
 
 class RemoteConfigService {
   RemoteConfigService._();
@@ -11,7 +12,7 @@ class RemoteConfigService {
   String minRequiredAppVersion = '1.0.0+8';
   String latestAppVersion = '1.0.0+8';
   bool forceUpdateEnabled = false;
-  String updateStoreUrl = 'https://github.com/Dranyl-23/Schedly/releases';
+  String updateStoreUrl = 'https://github.com/Dranyl-23/Reminda/releases';
   bool maintenanceMode = false;
   String maintenanceMessage = '';
 
@@ -80,7 +81,7 @@ class RemoteConfigService {
 
   void startListening() {
     try {
-      final firestore = FirebaseFirestore.instance;
+      final firestore = appFirestore;
       _subscription = firestore
           .collection('system_config')
           .doc('app_control')
@@ -92,7 +93,7 @@ class RemoteConfigService {
           minRequiredAppVersion = data['minRequiredAppVersion'] as String? ?? '1.0.0+8';
           latestAppVersion = data['latestAppVersion'] as String? ?? '1.0.0+8';
           forceUpdateEnabled = data['forceUpdateEnabled'] as bool? ?? false;
-          updateStoreUrl = data['updateStoreUrl'] as String? ?? 'https://github.com/Dranyl-23/Schedly/releases';
+          updateStoreUrl = data['updateStoreUrl'] as String? ?? 'https://github.com/Dranyl-23/Reminda/releases';
           maintenanceMode = data['maintenanceMode'] as bool? ?? false;
           maintenanceMessage = data['maintenanceMessage'] as String? ?? '';
 

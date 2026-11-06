@@ -54,7 +54,7 @@ if (!getApps().length) {
 }
 
 export const adminAuth: Auth = getAuth(app);
-export const adminDb: Firestore = getFirestore(app);
+export const adminDb: Firestore = getFirestore(app, "default");
 
 export const AUTHORIZED_ADMIN_EMAILS = [
   "alfielynard23@gmail.com",
@@ -62,7 +62,27 @@ export const AUTHORIZED_ADMIN_EMAILS = [
   "dranyl23@gmail.com"
 ];
 
-export async function verifyAdminRequest(req: Request): Promise<{ authorized: boolean; email?: string; error?: string; status?: number }> {
+/**
+ * A token is admin if it carries the `admin` custom claim, or if its email is on
+ * the allow-list AND Firebase reports that email as verified. Without the
+ * `email_verified` check, anyone could self-register an allow-listed address via
+ * email/password sign-up and gain admin access (this mirrors firestore.rules).
+ */
+export function isAdminToken(decoded: {
+  admin?: unknown;
+  email?: string;
+  email_verified?: boolean;
+}): boolean {
+  if (decoded.admin === true) return true;
+  const email = decoded.email?.toLowerCase();
+  return (
+    Boolean(email) &&
+    decoded.email_verified === true &&
+    AUTHORIZED_ADMIN_EMAILS.includes(email!)
+  );
+}
+
+export async function verifyAdminRequest(req: Request): Promise<{ authorized: boolean; uid?: string; email?: string; error?: string; status?: number }> {
   const authHeader = req.headers.get("authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return { authorized: false, error: "Unauthorized: Missing Authorization header.", status: 401 };
@@ -76,13 +96,12 @@ export async function verifyAdminRequest(req: Request): Promise<{ authorized: bo
   try {
     const decoded = await adminAuth.verifyIdToken(token);
     const email = decoded.email?.toLowerCase();
-    const isAdmin = decoded.admin === true || (Boolean(email) && AUTHORIZED_ADMIN_EMAILS.includes(email!));
 
-    if (!isAdmin) {
+    if (!isAdminToken(decoded)) {
       return { authorized: false, error: "Forbidden: Account lacks administrator privileges.", status: 403 };
     }
 
-    return { authorized: true, email };
+    return { authorized: true, uid: decoded.uid, email };
   } catch (err: any) {
     return { authorized: false, error: `Authentication failed: ${err.message}`, status: 401 };
   }

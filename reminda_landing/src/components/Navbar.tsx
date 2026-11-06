@@ -153,7 +153,7 @@ export function Navbar() {
                 Download Reminda
               </span>
               <a
-                href={downloadHub.universalApkUrl || "https://github.com/Dranyl-23/Reminda/releases/latest/download/app-arm64-v8a-release.apk"}
+                href={downloadHub.universalApkUrl || "https://github.com/Dranyl-23/Reminda/releases/download/v1.0.0%2B16/app-arm64-v8a-release.apk"}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setMobileMenuOpen(false)}
@@ -164,7 +164,7 @@ export function Navbar() {
               </a>
 
               <a
-                href={downloadHub.windowsUrl || "https://github.com/Dranyl-23/Reminda/releases/latest/download/reminda-windows-x64.zip"}
+                href={downloadHub.windowsUrl || "https://github.com/Dranyl-23/Reminda/releases/download/v1.0.0%2B2/Reminda-Setup.exe"}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setMobileMenuOpen(false)}
@@ -196,7 +196,7 @@ export function Navbar() {
 
                 {/* Windows Option */}
                 <a
-                  href={downloadHub.windowsUrl || "https://github.com/Dranyl-23/Reminda/releases/latest/download/reminda-windows-x64.zip"}
+                  href={downloadHub.windowsUrl || "https://github.com/Dranyl-23/Reminda/releases/download/v1.0.0%2B2/Reminda-Setup.exe"}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setDownloadOpen(false)}
@@ -211,7 +211,7 @@ export function Navbar() {
                         Windows Desktop
                       </span>
                       <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                        {downloadHub.windowsSize || "~18 MB"}
+                        {downloadHub.windowsSize || "~39 MB"}
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-500 mt-0.5">Windows 10 / 11 (64-bit)</p>
@@ -220,7 +220,7 @@ export function Navbar() {
 
                 {/* Android Option */}
                 <a
-                  href={downloadHub.universalApkUrl || "https://github.com/Dranyl-23/Reminda/releases/latest/download/app-arm64-v8a-release.apk"}
+                  href={downloadHub.universalApkUrl || "https://github.com/Dranyl-23/Reminda/releases/download/v1.0.0%2B16/app-arm64-v8a-release.apk"}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setDownloadOpen(false)}
@@ -235,7 +235,7 @@ export function Navbar() {
                         Android Mobile
                       </span>
                       <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                        {downloadHub.universalApkSize || "~58 MB"}
+                        {downloadHub.universalApkSize || "~68 MB"}
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-500 mt-0.5">APK &bull; Android 8.0 to 15</p>

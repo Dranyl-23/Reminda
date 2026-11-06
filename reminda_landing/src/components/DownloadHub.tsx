@@ -10,8 +10,8 @@ export function DownloadHub() {
   const { config } = useMarketingConfig();
   const { downloadHub } = config;
 
-  const windowsDownloadUrl = downloadHub.windowsUrl || "https://github.com/Dranyl-23/Reminda/releases/latest/download/reminda-windows-x64.zip";
-  const universalApkUrl = downloadHub.universalApkUrl || "https://github.com/Dranyl-23/Reminda/releases/latest/download/app-arm64-v8a-release.apk";
+  const windowsDownloadUrl = downloadHub.windowsUrl || "https://github.com/Dranyl-23/Reminda/releases/download/v1.0.0%2B2/Reminda-Setup.exe";
+  const universalApkUrl = downloadHub.universalApkUrl || "https://github.com/Dranyl-23/Reminda/releases/download/v1.0.0%2B16/app-arm64-v8a-release.apk";
 
   return (
     <div id="download" className="max-w-6xl mx-auto px-5 py-12">
@@ -106,7 +106,7 @@ export function DownloadHub() {
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-900 hover:text-blue-600 transition-colors pt-2 border-t border-slate-100"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Download Windows ({downloadHub.windowsSize || "~18 MB"}) &rarr;</span>
+            <span>Download Windows ({downloadHub.windowsSize || "~39 MB"}) &rarr;</span>
           </a>
         </div>
 

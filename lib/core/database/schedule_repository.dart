@@ -31,25 +31,9 @@ class ScheduleRepository {
     if (Hive.isBoxOpen(boxName)) {
       _box = Hive.box<String>(boxName);
     } else {
-      HiveAesCipher? cipher;
-      try {
-        cipher = await HiveEncryptionHelper.getCipher();
-      } catch (e) {
-        debugPrint('ScheduleRepository: Encryption cipher lookup failed: $e');
-      }
-
-      if (cipher != null) {
-        try {
-          _box = await Hive.openBox<String>(boxName, encryptionCipher: cipher);
-        } catch (e) {
-          debugPrint(
-            'ScheduleRepository: Encrypted open failed ($e), opening unencrypted box for backward compatibility',
-          );
-          _box = await Hive.openBox<String>(boxName);
-        }
-      } else {
-        _box = await Hive.openBox<String>(boxName);
-      }
+      // Safe open: strict encrypted open, backup + legacy plaintext migration.
+      // Never reopens an encrypted box as plaintext (which could truncate it).
+      _box = await HiveEncryptionHelper.openSecureBox(boxName);
     }
     _rebuildCacheFromDisk();
   }

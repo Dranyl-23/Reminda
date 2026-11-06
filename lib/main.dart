@@ -31,40 +31,23 @@ void main() async {
   // 2. Initialize App Version from pubspec / platform package info
   await AppVersion.initialize();
 
-  // 3. Load Environment Variables (.env)
-  // For production Windows distribution, prefer injecting API keys at
-  // compile time so no plaintext secrets ship with the .exe:
-  //   flutter build windows --dart-define=GEMINI_API_KEY=<key> \
-  //                         --dart-define=GROQ_API_KEY=<key>
-  // Keys baked in via --dart-define are accessible via BuildConfig.geminiApiKey
-  // and BuildConfig.groqApiKey. The .env file is still loaded as a convenience
-  // for local development when compile-time keys are absent.
-  try {
-    if (!kIsWeb) {
-      File envFile = File('.env');
-      if (!envFile.existsSync()) {
-        final exeDir = File(Platform.resolvedExecutable).parent;
-        final candidate = File('${exeDir.path}${Platform.pathSeparator}.env');
-        if (candidate.existsSync()) {
-          envFile = candidate;
-        }
-      }
+  // 3. Load Environment Variables (.env) in local development only.
+  // Release builds never load plaintext .env files from disk or next to the
+  // executable; production cloud AI runs through BuildConfig.aiProxyUrl.
+  if (!kReleaseMode && !kIsWeb) {
+    try {
+      final envFile = File('.env');
       if (envFile.existsSync()) {
         final content = envFile.readAsStringSync();
         dotenv.testLoad(fileInput: content);
-      } else if (!BuildConfig.hasCompileTimeKeys) {
-        // No .env and no compile-time keys — AI features will be unavailable.
+      } else if (!BuildConfig.hasCompileTimeConfig) {
         debugPrint(
-          'BuildConfig: No .env file found and no compile-time keys injected. '
-          'AI features will be disabled. For production builds use '
-          '--dart-define=GEMINI_API_KEY=<key>.',
+          'BuildConfig: No local .env found and no AI_PROXY_URL defined.',
         );
       }
-    } else {
-      await dotenv.load(fileName: ".env");
+    } catch (e) {
+      debugPrint('Could not load .env: $e');
     }
-  } catch (e) {
-    debugPrint('Could not load .env: $e');
   }
 
   // 4. Initialize Firebase, Cloud Directory & Remote Config Flags
@@ -73,14 +56,22 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
 
-    // Route Flutter framework errors (widget build failures, etc.) to Crashlytics.
-    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    // Crashlytics only supports Android/iOS/macOS; isolate it so a failure here
+    // never prevents the services below from starting.
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS)) {
+      try {
+        // Route Flutter framework errors (widget build failures, etc.) to Crashlytics.
+        FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
 
-    // Route uncaught Dart async errors that escape Flutter's error handler.
-    WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-      return true;
-    };
+        // Route uncaught Dart async errors that escape Flutter's error handler.
+        WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
+          FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+          return true;
+        };
+      } catch (e) {
+        debugPrint('Crashlytics setup skipped: $e');
+      }
+    }
 
     InstitutionSyncService().startListening();
     RemoteConfigService.instance.startListening();
@@ -90,10 +81,18 @@ void main() async {
 
   // 5. Initialize Local Databases (Schedules + Profiles)
   final repository = ScheduleRepository();
-  await repository.init();
+  try {
+    await repository.init();
+  } catch (e, st) {
+    debugPrint('ScheduleRepository init failed: $e\n$st');
+  }
 
   final profileRepository = ProfileRepository();
-  await profileRepository.init();
+  try {
+    await profileRepository.init();
+  } catch (e, st) {
+    debugPrint('ProfileRepository init failed: $e\n$st');
+  }
 
   // 6. Background User Sync
   try {

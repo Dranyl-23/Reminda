@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/institution_directory.dart';
+import 'firestore_instance.dart';
 
 /// Reactive Riverpod provider that triggers a rebuild whenever cloud institutions update.
 final cloudInstitutionsRevisionProvider =
@@ -15,7 +16,7 @@ class InstitutionSyncService {
   factory InstitutionSyncService() => _instance;
   InstitutionSyncService._internal();
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore = appFirestore;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _subscription;
 
   void startListening() {

@@ -71,10 +71,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser && currentUser.email) {
-        const isAuth = AUTHORIZED_ADMINS.includes(currentUser.email.toLowerCase());
+        const isAuth =
+          currentUser.emailVerified &&
+          AUTHORIZED_ADMINS.includes(currentUser.email.toLowerCase());
         setIsAdmin(isAuth);
         if (!isAuth) {
-          setError(`Access denied. ${currentUser.email} is not authorized as an administrator.`);
+          setError(`Access denied. ${currentUser.email} is not an authorized verified administrator.`);
         } else {
           setError(null);
         }
@@ -94,8 +96,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       const result = await signInWithPopup(auth, googleProvider);
       const email = result.user.email?.toLowerCase();
-      if (email && !AUTHORIZED_ADMINS.includes(email)) {
-        setError(`Access denied. ${email} is not authorized as an administrator.`);
+      if (!email || !result.user.emailVerified || !AUTHORIZED_ADMINS.includes(email)) {
+        setError(`Access denied. ${email || "Account"} is not an authorized verified administrator.`);
         await signOut(auth);
       }
     } catch (err: any) {

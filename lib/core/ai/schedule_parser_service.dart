@@ -273,8 +273,8 @@ Critical Extraction Rules:
     final dataUri = 'data:$normalizedMime;base64,$base64Image';
 
     final models = [
-      'llama-3.2-11b-vision-preview',
-      'llama-3.2-90b-vision-preview',
+      'meta-llama/llama-4-scout-17b-16e-instruct',
+      'meta-llama/llama-4-maverick-17b-128e-instruct',
     ];
 
     for (final model in models) {
@@ -612,9 +612,8 @@ Critical Extraction Rules:
     }
 
     final modelNames = [
-      'gemini-1.5-flash',
+      'gemini-2.5-flash',
       'gemini-2.0-flash',
-      'gemini-1.5-flash-8b',
       'gemini-flash-latest',
       'gemini-flash-lite-latest',
     ];

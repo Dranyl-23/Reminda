@@ -20,7 +20,14 @@
       }
     }
   },
-  "firestore": {
-    "rules": "firestore.rules"
-  }
+  "firestore": [
+    {
+      "database": "(default)",
+      "rules": "firestore.rules"
+    },
+    {
+      "database": "default",
+      "rules": "firestore.rules"
+    }
+  ]
 }

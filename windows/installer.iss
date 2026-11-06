@@ -2,7 +2,9 @@
 ; Flutter Windows Release Installer
 
 #define MyAppName "Reminda"
-#define MyAppVersion "1.0.0+16"
+#ifndef MyAppVersion
+#define MyAppVersion "1.0.0+17"
+#endif
 #define MyAppPublisher "Reminda"
 #define MyAppURL "https://getreminda.vercel.app"
 #define MyAppExeName "Reminda.exe"
@@ -42,7 +44,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "..\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.exp,*.lib"
+Source: "..\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.exp,*.lib,.env,.env.*"
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:uuid/uuid.dart';
 import '../../models/schedule_entry.dart';
 import 'firestore_instance.dart';
 
@@ -23,8 +24,10 @@ class ScheduleShareService {
   static final ScheduleShareService instance = ScheduleShareService._();
 
   final FirebaseFirestore _firestore = appFirestore;
+  static const _uuid = Uuid();
 
   /// Generates a 6-digit numeric share code and uploads the schedule bundle to Cloud Firestore.
+  /// Retries on code collision and never exposes the user's raw email address.
   Future<String> publishScheduleBundle({
     required List<ScheduleEntry> schedules,
     String profileName = 'Class Schedule',
@@ -34,10 +37,13 @@ class ScheduleShareService {
       throw Exception('No active schedules available to share.');
     }
 
-    final random = Random.secure();
-    final code = (100000 + random.nextInt(900000)).toString();
     final user = FirebaseAuth.instance.currentUser;
-    final sharedBy = user?.displayName ?? user?.email ?? 'Reminda Student';
+    final rawName = user?.displayName?.trim();
+    // Never fall back to user?.email here so the sharer's email address is not
+    // exposed in a publicly readable shared_schedules document.
+    final sharedBy = (rawName != null && rawName.isNotEmpty)
+        ? rawName
+        : 'Reminda Student';
 
     final serialized = activeSchedules.map((e) {
       final json = e.toJson();
@@ -45,6 +51,23 @@ class ScheduleShareService {
       json['mutedDates'] = <String>[];
       return json;
     }).toList();
+
+    final random = Random.secure();
+    String? code;
+
+    for (var attempt = 0; attempt < 5; attempt++) {
+      final candidate = (100000 + random.nextInt(900000)).toString();
+      final docRef = _firestore.collection('shared_schedules').doc(candidate);
+      final existing = await docRef.get().timeout(const Duration(seconds: 8));
+      if (!existing.exists) {
+        code = candidate;
+        break;
+      }
+    }
+
+    if (code == null) {
+      throw Exception('Could not allocate a unique share code. Please try again.');
+    }
 
     await _firestore
         .collection('shared_schedules')
@@ -83,12 +106,17 @@ class ScheduleShareService {
     }
 
     final data = doc.data()!;
+    final expiresAt = data['expiresAt'];
+    if (expiresAt is Timestamp && expiresAt.toDate().isBefore(DateTime.now())) {
+      throw Exception('Share code "$cleanCode" has expired.');
+    }
+
     final rawList = data['schedules'] as List<dynamic>? ?? [];
     final entries = rawList
         .whereType<Map<String, dynamic>>()
         .map((item) => ScheduleEntry.fromJson(item).copyWith(
               // Assign fresh unique IDs on import so classmates don't collide
-              id: null,
+              id: _uuid.v4(),
               mutedDates: const [],
             ))
         .toList();

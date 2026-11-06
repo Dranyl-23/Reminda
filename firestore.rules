@@ -17,9 +17,25 @@ service cloud.firestore {
       );
     }
 
+    // Server-only AI scan quota tracking (written exclusively via Admin SDK)
+    match /ai_usage/{userId} {
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == userId);
+      allow write: if false;
+    }
+
     // User root document (Profile, Preferences & Telemetry)
+    // Owners may create/update their profile fields but cannot escalate privileges
+    // or tamper with server-managed quota fields.
     match /users/{userId} {
-      allow create, update: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null &&
+                       request.auth.uid == userId &&
+                       !('admin' in request.resource.data) &&
+                       !('isAdmin' in request.resource.data) &&
+                       !('aiScanUsage' in request.resource.data);
+      allow update: if request.auth != null &&
+                       request.auth.uid == userId &&
+                       !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['admin', 'isAdmin', 'aiScanUsage']);
       allow read, delete: if request.auth != null && (request.auth.uid == userId || isAdmin());
       
       // User Schedules subcollection
@@ -41,18 +57,26 @@ service cloud.firestore {
       }
     }
 
-    // In-App User Feedback collection (Validated create, Admin read/update/delete)
+    // In-App User Feedback collection (Authenticated/Validated create, Admin read/update/delete)
     match /user_feedback/{feedbackId} {
-      allow create: if request.resource.data.keys().hasAny(['message', 'comment', 'rating']) &&
-                       (!('message' in request.resource.data) || request.resource.data.message.size() <= 4000) &&
-                       (!('comment' in request.resource.data) || request.resource.data.comment.size() <= 4000);
+      allow create: if request.auth != null &&
+                       request.resource.data.keys().size() <= 15 &&
+                       request.resource.data.keys().hasAny(['message', 'comment', 'rating']) &&
+                       (!('message' in request.resource.data) ||
+                         (request.resource.data.message is string && request.resource.data.message.size() <= 4000)) &&
+                       (!('comment' in request.resource.data) ||
+                         (request.resource.data.comment is string && request.resource.data.comment.size() <= 4000));
       allow read, update, delete: if isAdmin();
     }
 
     // Anonymous AI Training Telemetry Dataset collection (Validated create, Admin read/update/delete)
     match /ai_training_samples/{sampleId} {
-      allow create: if request.resource.data.keys().hasAny(['verifiedEntries', 'entriesCount']) &&
-                       request.resource.size() < 100000;
+      allow create: if request.auth != null &&
+                       request.resource.data.keys().size() <= 15 &&
+                       request.resource.data.keys().hasAny(['verifiedEntries', 'entriesCount']) &&
+                       (!('verifiedEntries' in request.resource.data) ||
+                         (request.resource.data.verifiedEntries is list &&
+                          request.resource.data.verifiedEntries.size() <= 60));
       allow read, update, delete: if isAdmin();
     }
 
@@ -74,12 +98,21 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // 6-Digit Class Block Schedule Sharing (Public Read & Validated Create for Classmates)
+    // 6-Digit Class Block Schedule Sharing
+    // Direct lookup (`get`) by shareCode is allowed when not expired (or when checking
+    // availability of an unused code), while full collection listing (`list`) is restricted
+    // to admins so codes cannot be enumerated.
     match /shared_schedules/{shareCode} {
-      allow read: if true;
-      allow create: if request.resource.data.keys().hasAll(['schedules']) &&
+      allow get: if resource == null ||
+                    !('expiresAt' in resource.data) ||
+                    resource.data.expiresAt > request.time;
+      allow list: if isAdmin();
+      allow create: if request.auth != null &&
+                       request.resource.data.keys().hasAll(['schedules', 'expiresAt']) &&
                        request.resource.data.schedules is list &&
-                       request.resource.data.schedules.size() <= 50;
+                       request.resource.data.schedules.size() <= 50 &&
+                       request.resource.data.expiresAt is timestamp &&
+                       request.resource.data.expiresAt > request.time;
       allow update, delete: if isAdmin();
     }
   }

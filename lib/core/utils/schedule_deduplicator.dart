@@ -20,7 +20,12 @@ class ScheduleDeduplicator {
   const ScheduleDeduplicator._();
 
   /// Determines if two schedules represent the exact same slot/class.
-  static bool areDuplicates(ScheduleEntry a, ScheduleEntry b) {
+  ///
+  /// When [strict] is true only an exact (case-insensitive) title match in the same
+  /// days/time slot counts. Use strict mode for AUTOMATIC cleanups that delete data
+  /// without user confirmation; fuzzy matching is reserved for user-triggered
+  /// actions (manual dedupe, import merge).
+  static bool areDuplicates(ScheduleEntry a, ScheduleEntry b, {bool strict = false}) {
     if (a.id == b.id) return false;
 
     // Must have identical start and end time
@@ -44,10 +49,16 @@ class ScheduleDeduplicator {
       return true;
     }
 
-    // 2. Abbreviation or substring match -> Always duplicate
+    if (strict) return false;
+
+    // 2. Abbreviation or substring match -> Always duplicate.
+    // Both cleaned titles must be at least 3 chars so tiny titles (e.g. "A", "PE")
+    // don't match everything that happens to contain them.
     final aClean = a.title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
     final bClean = b.title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-    if (aClean.isNotEmpty && bClean.isNotEmpty && (aClean.contains(bClean) || bClean.contains(aClean))) {
+    if (aClean.length >= 3 &&
+        bClean.length >= 3 &&
+        (aClean.contains(bClean) || bClean.contains(aClean))) {
       return true;
     }
 
@@ -131,7 +142,10 @@ class ScheduleDeduplicator {
 
   /// Deduplicates a list of schedule entries, returning the kept unique entries,
   /// redundant entries to remove, and updated entries that inherited fields.
-  static DeduplicationResult deduplicate(List<ScheduleEntry> entries) {
+  ///
+  /// Pass [strict] = true for automatic (non user-initiated) cleanups; see
+  /// [areDuplicates].
+  static DeduplicationResult deduplicate(List<ScheduleEntry> entries, {bool strict = false}) {
     if (entries.length <= 1) {
       return DeduplicationResult(
         kept: List.from(entries),
@@ -147,7 +161,7 @@ class ScheduleDeduplicator {
     for (final candidate in entries) {
       int matchIndex = -1;
       for (int i = 0; i < kept.length; i++) {
-        if (areDuplicates(candidate, kept[i])) {
+        if (areDuplicates(candidate, kept[i], strict: strict)) {
           matchIndex = i;
           break;
         }

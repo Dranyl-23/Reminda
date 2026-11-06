@@ -268,16 +268,16 @@ class DpapiJsonFileMapStorage extends MapStorage {
     } on FormatException catch (e) {
       // A file content should be malformed.
       debugPrint(
-        'Failed to decrypt data: $e Delete corrupt file: ${file.path}',
+        'Failed to decrypt data: $e Backing up and deleting corrupt file: ${file.path}',
       );
-      await file.delete();
+      await _backupAndDeleteCorruptFile(file);
       rethrow;
     } on WindowsException catch (e) {
       // A file content should be malformed.
       debugPrint(
-        'Failed to decrypt data: $e Delete corrupt file: ${file.path}',
+        'Failed to decrypt data: $e Backing up and deleting corrupt file: ${file.path}',
       );
-      await file.delete();
+      await _backupAndDeleteCorruptFile(file);
       rethrow;
     }
 
@@ -287,17 +287,17 @@ class DpapiJsonFileMapStorage extends MapStorage {
     } on FormatException catch (e) {
       // A file content should be malformed.
       debugPrint(
-        'Failed to parse JSON: $e Delete corrupt file: ${file.path}',
+        'Failed to parse JSON: $e Backing up and deleting corrupt file: ${file.path}',
       );
-      await file.delete();
+      await _backupAndDeleteCorruptFile(file);
       rethrow;
     }
 
     if (decoded is! Map) {
       debugPrint(
-        'Failed to parse JSON: Not an object. Delete corrupt file: ${file.path}',
+        'Failed to parse JSON: Not an object. Backing up and deleting corrupt file: ${file.path}',
       );
-      await file.delete();
+      await _backupAndDeleteCorruptFile(file);
       throw const FormatException('JSON is not an object.');
     }
 
@@ -306,6 +306,23 @@ class DpapiJsonFileMapStorage extends MapStorage {
           in decoded.entries.where((x) => x.key is String && x.value is String))
         e.key as String: e.value as String,
     };
+  }
+
+  Future<void> _backupAndDeleteCorruptFile(File file) async {
+    try {
+      if (await file.exists()) {
+        await file.copy('${file.path}.bak');
+      }
+    } catch (e) {
+      debugPrint('Failed to back up corrupt secure storage file: $e');
+    }
+    try {
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (e) {
+      debugPrint('Failed to delete corrupt secure storage file: $e');
+    }
   }
 
   @override
@@ -357,20 +374,21 @@ class DpapiJsonFileMapStorage extends MapStorage {
         final encryptedText = encryptedTextBlob.ref.pbData
             .asTypedList(encryptedTextBlob.ref.cbData);
 
-        // Loop to handle race condition.
-        while (true) {
+        // Bounded retry loop to handle transient file locks without hanging forever.
+        const maxAttempts = 3;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
             await (await file.create(recursive: true))
                 .writeAsBytes(encryptedText, flush: true);
-            // If success, finish loop.
             break;
           } on FileSystemException catch (e) {
-            // Another process has been deleted a file or parent directory
-            // since previous File.create() call.
-            // We will retry writing.
             debugPrint(
-              'Reading file has been deleted by another process. $e',
+              'save: FileSystemException on attempt $attempt/$maxAttempts: $e',
             );
+            if (attempt >= maxAttempts) {
+              rethrow;
+            }
+            await Future<void>.delayed(const Duration(milliseconds: 50));
           }
         }
       } finally {

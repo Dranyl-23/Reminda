@@ -20,6 +20,38 @@ export function MarketingConfigProvider({ children }: { children: React.ReactNod
   const [config, setConfig] = useState<MarketingSiteConfig>(defaultMarketingConfig);
   const [isLive, setIsLive] = useState(false);
 
+  // Automatically fetch latest release metadata from GitHub dynamically
+  useEffect(() => {
+    fetch("/api/release/latest")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.tagName) {
+          setConfig((prev) => {
+            return {
+              ...prev,
+              hero: {
+                ...prev.hero,
+                versionBadge: data.tagName,
+              },
+              announcement: {
+                ...prev.announcement,
+                text: `Reminda ${data.tagName} is now live with Windows Desktop & Android updates!`,
+                linkUrl: data.htmlUrl || prev.announcement.linkUrl,
+              },
+              downloadHub: {
+                ...prev.downloadHub,
+                tag: `Production Release • ${data.tagName}`,
+                universalApkSize: data.apkSize || prev.downloadHub.universalApkSize,
+                arm64ApkSize: data.apkSize || prev.downloadHub.arm64ApkSize,
+                windowsSize: data.windowsSize || prev.downloadHub.windowsSize,
+              },
+            };
+          });
+        }
+      })
+      .catch((err) => console.warn("Failed to fetch dynamic release info:", err));
+  }, []);
+
   useEffect(() => {
     try {
       const docRef = doc(db, "system_config", "marketing_site");

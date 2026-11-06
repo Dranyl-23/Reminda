@@ -76,6 +76,12 @@ class FirestoreSyncService {
   bool _isSyncing = false;
   Completer<void>? _activeSyncCompleter;
 
+  bool _isUnmodifiedDefaultProfile(ScheduleProfile p) {
+    return (p.id == 'school-profile-1' && p.name == 'School Schedule' && p.type == 'school' && p.colorHex == '#2563EB') ||
+           (p.id == 'work-profile-2' && p.name == 'Part-Time Job' && p.type == 'work' && p.colorHex == '#F97316') ||
+           (p.id == 'duty-profile-3' && p.name == 'Duty Roster' && p.type == 'duty' && p.colorHex == '#10B981');
+  }
+
   Future<void> pullAndSyncAll({VoidCallback? onDataChanged}) async {
     if (RemoteConfigService.instance.maintenanceMode) {
       debugPrint('FirestoreSyncService: Cloud sync paused due to active server maintenance mode.');
@@ -132,12 +138,47 @@ class FirestoreSyncService {
         debugPrint('FirestoreSyncService: Successfully parsed ${cloudProfiles.length}/${snapshot.docs.length} cloud profiles.');
 
         if (cloudProfiles.isNotEmpty) {
-          await _profileRepo.clearAll();
-          for (final p in cloudProfiles) {
+          final localProfiles = _profileRepo.getAllProfiles();
+          final localMap = <String, ScheduleProfile>{
+            for (final p in localProfiles) p.id: p,
+          };
+          final cloudMap = <String, ScheduleProfile>{
+            for (final p in cloudProfiles) p.id: p,
+          };
+
+          final mergedProfiles = <ScheduleProfile>[];
+          final profilesToUpload = <ScheduleProfile>[];
+
+          final allProfileIds = <String>{...localMap.keys, ...cloudMap.keys};
+          for (final id in allProfileIds) {
+            final local = localMap[id];
+            final cloud = cloudMap[id];
+
+            if (local != null && cloud != null) {
+              final localIsDefault = _isUnmodifiedDefaultProfile(local);
+              if (!localIsDefault && local.updatedAt.isAfter(cloud.updatedAt)) {
+                mergedProfiles.add(local);
+                profilesToUpload.add(local);
+              } else {
+                mergedProfiles.add(cloud);
+              }
+            } else if (local != null) {
+              // Offline or pre-login local profile: preserve locally and upload to cloud
+              mergedProfiles.add(local);
+              profilesToUpload.add(local);
+            } else if (cloud != null) {
+              mergedProfiles.add(cloud);
+            }
+          }
+
+          for (final p in mergedProfiles) {
             await _profileRepo.saveProfile(p);
           }
+          for (final p in profilesToUpload) {
+            await syncProfileToCloud(p);
+          }
         } else {
-          // Fresh profile setup
+          // Fresh cloud profile setup
           final localProfiles = _profileRepo.getAllProfiles();
           if (localProfiles.isEmpty) {
             await _profileRepo.resetDefaultProfiles();
@@ -198,8 +239,9 @@ class FirestoreSyncService {
           }
         }
 
-        // Deduplicate merged schedules so that duplicates in local or cloud are eliminated
-        final dedupResult = ScheduleDeduplicator.deduplicate(mergedEntries);
+        // Deduplicate merged schedules (exact duplicates only; this runs automatically
+        // and deletes from local + cloud, so fuzzy matching is not used here)
+        final dedupResult = ScheduleDeduplicator.deduplicate(mergedEntries, strict: true);
 
         if (dedupResult.removed.isNotEmpty) {
           final duplicateIds = dedupResult.removed.map((e) => e.id).toList();
@@ -277,7 +319,12 @@ class FirestoreSyncService {
           }
 
           if (targetPid != null && targetPid != pid) {
-            healedSchedules.add(entry.copyWith(profileId: targetPid));
+            healedSchedules.add(
+              entry.copyWith(
+                profileId: targetPid,
+                updatedAt: entry.updatedAt,
+              ),
+            );
           }
         }
 

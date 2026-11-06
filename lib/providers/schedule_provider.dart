@@ -106,7 +106,12 @@ class ScheduleNotifier extends StateNotifier<List<ScheduleEntry>> {
         }
 
         if (targetPid != null && targetPid != pid) {
-          final fixed = entry.copyWith(profileId: targetPid);
+          // Preserve original updatedAt so automatic system healing on a
+          // device with stale local data does not win timestamp conflict resolution.
+          final fixed = entry.copyWith(
+            profileId: targetPid,
+            updatedAt: entry.updatedAt,
+          );
           healed.add(fixed);
           updatedList.add(fixed);
         } else {
@@ -122,8 +127,11 @@ class ScheduleNotifier extends StateNotifier<List<ScheduleEntry>> {
         }
       }
 
-      // Self-healing: Automatically eliminate redundant duplicate schedules
-      final dedupResult = ScheduleDeduplicator.deduplicate(schedules);
+      // Self-healing: automatically eliminate only EXACT duplicate schedules.
+      // Fuzzy matching is intentionally left to the user-triggered
+      // deduplicateSchedules(), since this runs silently on every load and
+      // deletes entries locally and in the cloud.
+      final dedupResult = ScheduleDeduplicator.deduplicate(schedules, strict: true);
       if (dedupResult.removed.isNotEmpty) {
         for (final entry in dedupResult.removed) {
           _repository.deleteSchedule(entry.id);
@@ -302,7 +310,9 @@ class ScheduleNotifier extends StateNotifier<List<ScheduleEntry>> {
 
   Future<void> deleteSchedulesForProfile(String profileId) async {
     final all = _repository.getAllSchedules();
-    final toDelete = all.where((e) => e.profileId == profileId || (e.profileId == null)).toList();
+    // Only remove entries that belong to this profile. Unassigned (null) entries
+    // are healed into a valid profile by _loadSchedules and must not be deleted.
+    final toDelete = all.where((e) => e.profileId == profileId).toList();
     for (final entry in toDelete) {
       await _notificationService.cancelEntryReminders(entry);
       await _repository.deleteSchedule(entry.id);
