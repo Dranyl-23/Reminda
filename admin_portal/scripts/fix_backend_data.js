@@ -132,6 +132,9 @@ async function restoreSchoolLogos() {
   const batch = db.batch();
 
   for (const doc of docsList) {
+    if (doc.logoUrl && (String(doc.logoUrl).startsWith('data:image/') || String(doc.logoUrl).includes('ibb.co'))) {
+      continue;
+    }
     const docClean = cleanStr(doc.name + ' ' + (doc.shortName || ''));
     let matchedLogo = null;
 

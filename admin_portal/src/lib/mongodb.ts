@@ -2,6 +2,8 @@ import dns from "dns";
 import { MongoClient, MongoClientOptions } from "mongodb";
 
 const PUBLIC_DNS_SERVERS = ["8.8.8.8", "1.1.1.1", "8.8.4.4", "1.0.0.1"];
+const shardIpCache = new Map<string, string[]>();
+let dnsLookupPatched = false;
 
 function configureGlobalDns() {
   try {
@@ -9,10 +11,54 @@ function configureGlobalDns() {
     if (dns.promises && typeof dns.promises.setServers === "function") {
       dns.promises.setServers(PUBLIC_DNS_SERVERS);
     }
+    if (!dnsLookupPatched) {
+      dnsLookupPatched = true;
+      const origLookup = dns.lookup.bind(dns);
+      (dns as any).lookup = function (hostname: string, options: any, callback?: any) {
+        let cb = callback;
+        let opts = options;
+        if (typeof options === "function") {
+          cb = options;
+          opts = {};
+        }
+        const all = opts && opts.all;
+        const cachedIps = shardIpCache.get(hostname);
+        if (cachedIps && cachedIps.length > 0) {
+          if (all) {
+            return process.nextTick(() =>
+              cb(
+                null,
+                cachedIps.map((address) => ({ address, family: 4 }))
+              )
+            );
+          }
+          return process.nextTick(() => cb(null, cachedIps[0], 4));
+        }
+        return origLookup(hostname, options, callback);
+      };
+    }
   } catch (_) {}
 }
 
 configureGlobalDns();
+
+async function preCacheHostIps(hosts: string[]) {
+  await Promise.all(
+    hosts.map(async (host) => {
+      try {
+        const resp = await fetch(
+          `https://dns.google/resolve?name=${encodeURIComponent(host)}&type=A`
+        ).then((r) => r.json());
+        const ips = (resp?.Answer || [])
+          .filter((a: any) => a.type === 1 && a.data)
+          .map((a: any) => String(a.data));
+        if (ips.length > 0) {
+          shardIpCache.set(host, ips);
+        }
+      } catch (_) {}
+    })
+  );
+}
 
 /**
  * Converts a `mongodb+srv://user:pass@clusterHost/db?params` URI into a direct
@@ -22,6 +68,11 @@ configureGlobalDns();
  */
 async function resolveSrvUriToDirect(rawUri: string): Promise<string> {
   if (!rawUri.startsWith("mongodb+srv://")) {
+    const hostMatch = rawUri.match(/@([^/?]+)/);
+    if (hostMatch) {
+      const hosts = hostMatch[1].split(",").map((h) => h.split(":")[0].trim());
+      await preCacheHostIps(hosts);
+    }
     return rawUri;
   }
 
@@ -71,6 +122,8 @@ async function resolveSrvUriToDirect(rawUri: string): Promise<string> {
     if (srvTargets.length === 0) {
       return rawUri;
     }
+
+    await preCacheHostIps(srvTargets.map((t) => t.name));
 
     const hostsSeedList = srvTargets.map((t) => `${t.name}:${t.port}`).join(",");
     const mergedParams = new URLSearchParams(txtParams);
