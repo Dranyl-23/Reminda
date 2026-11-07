@@ -113,11 +113,11 @@ export default function WebsiteCMSPage() {
   return (
     <>
       <Header title="Marketing Website CMS" />
-      <main className="flex-1 px-8 pb-12 space-y-6 max-w-[1400px] w-full">
+      <main className="flex-1 p-6 lg:p-8 space-y-6 max-w-[1600px] w-full mx-auto">
         
         {/* Toast */}
         {toastMessage && (
-          <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-2xl bg-slate-900 text-white text-xs font-bold shadow-xl flex items-center gap-2.5 animate-bounce">
+          <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-zinc-900 text-white text-xs font-semibold shadow-xl flex items-center gap-2.5">
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             <span>{toastMessage}</span>
           </div>
@@ -126,17 +126,20 @@ export default function WebsiteCMSPage() {
         {/* Top Control Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
-              Live Headless CMS. Any updates saved here propagate in real-time to the public Reminda marketing landing page.
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+              Marketing Website CMS
+            </h1>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+              Live headless CMS. Updates published here propagate immediately to the Reminda landing page.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <a
               href={process.env.NEXT_PUBLIC_LANDING_URL || "https://getreminda.vercel.app"}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2 rounded-2xl border border-slate-200 dark:border-[#202231] hover:bg-slate-50 dark:hover:bg-[#1C1D2B] text-slate-700 dark:text-slate-300 font-bold text-xs transition-colors flex items-center gap-1.5"
+              className="h-9 px-3.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] hover:bg-zinc-50 dark:hover:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 font-medium text-xs transition-colors flex items-center gap-1.5 shadow-2xs"
             >
               <span>View Live Website</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
@@ -145,7 +148,7 @@ export default function WebsiteCMSPage() {
             <button
               type="button"
               onClick={handleResetToDefaults}
-              className="px-4 py-2 rounded-2xl border border-slate-200 dark:border-[#202231] hover:bg-slate-50 dark:hover:bg-[#1C1D2B] text-slate-600 dark:text-slate-400 font-bold text-xs transition-colors flex items-center gap-1.5"
+              className="h-9 px-3.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] hover:bg-zinc-50 dark:hover:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 font-medium text-xs transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>Defaults</span>
@@ -154,7 +157,7 @@ export default function WebsiteCMSPage() {
             <button
               onClick={() => handleSave()}
               disabled={isSaving || isLoading}
-              className="px-5 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors flex items-center gap-2 disabled:opacity-50"
+              className="h-9 px-4 rounded-lg bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 font-semibold text-xs shadow-2xs transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
             >
               {isSaving ? (
                 <>

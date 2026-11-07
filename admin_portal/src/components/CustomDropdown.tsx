@@ -32,7 +32,6 @@ export function CustomDropdown({
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Normalize options
   const normalizedOptions: DropdownOption[] = options.map((opt) => {
     if (typeof opt === "string") {
       return { value: opt, label: opt };
@@ -45,7 +44,6 @@ export function CustomDropdown({
     label: value || placeholder,
   };
 
-  // Close when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -62,28 +60,32 @@ export function CustomDropdown({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full text-left flex items-center justify-between transition-all font-bold focus:outline-none ${
+        className={`w-full text-left flex items-center justify-between transition-all font-medium focus:outline-none cursor-pointer ${
           compact
-            ? "px-3 py-1.5 rounded-xl text-[11px]"
-            : "p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 hover:border-blue-400 focus:border-blue-500"
+            ? "px-2.5 py-1.5 rounded-lg text-[11px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800/80"
+            : "px-3 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 hover:border-zinc-300 dark:hover:border-zinc-700"
         } ${
-          isOpen ? "border-blue-500 ring-2 ring-blue-500/10 bg-white shadow-xs" : ""
+          isOpen
+            ? "border-zinc-900 dark:border-zinc-400 ring-2 ring-zinc-900/10 dark:ring-zinc-100/10 shadow-2xs"
+            : ""
         } ${buttonClassName}`}
       >
         <span className="truncate flex items-center gap-1.5">
-          {selectedOption.icon && <selectedOption.icon className="w-3.5 h-3.5 shrink-0 text-slate-400" />}
+          {selectedOption.icon && (
+            <selectedOption.icon className="w-3.5 h-3.5 shrink-0 text-zinc-400 dark:text-zinc-500" />
+          )}
           {selectedOption.label}
         </span>
         <ChevronDown
-          className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ml-2 ${
-            isOpen ? "rotate-180 text-blue-600" : ""
+          className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 shrink-0 ml-2 ${
+            isOpen ? "rotate-180 text-zinc-900 dark:text-zinc-100" : ""
           }`}
         />
       </button>
 
       {/* Popover Menu */}
       {isOpen && (
-        <div className="absolute z-[999] left-0 right-0 mt-1.5 p-1.5 rounded-2xl bg-white border border-slate-200/90 shadow-xl max-h-60 overflow-y-auto space-y-1 animate-in fade-in zoom-in-95 min-w-[140px]">
+        <div className="absolute z-[999] left-0 right-0 mt-1.5 p-1 rounded-xl bg-white dark:bg-[#18181B] border border-zinc-200 dark:border-zinc-800 shadow-xl max-h-60 overflow-y-auto space-y-0.5 animate-in fade-in zoom-in-95 min-w-[150px]">
           {normalizedOptions.map((opt) => {
             const isSelected = opt.value === value;
             return (
@@ -94,18 +96,22 @@ export function CustomDropdown({
                   onChange(opt.value);
                   setIsOpen(false);
                 }}
-                className={`w-full px-3 py-2 rounded-xl text-left flex items-center justify-between font-semibold text-xs transition-colors ${
+                className={`w-full px-2.5 py-1.5 rounded-lg text-left flex items-center justify-between text-xs transition-colors cursor-pointer ${
                   isSelected
-                    ? "bg-blue-50 text-blue-700 font-bold"
-                    : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                    ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold"
+                    : "text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 hover:text-zinc-900 dark:hover:text-zinc-100 font-medium"
                 }`}
               >
                 <div className="flex items-center gap-2 truncate">
-                  {opt.icon && <opt.icon className="w-3.5 h-3.5 shrink-0 text-slate-400" />}
+                  {opt.icon && (
+                    <opt.icon className="w-3.5 h-3.5 shrink-0 text-zinc-400 dark:text-zinc-500" />
+                  )}
                   <span className="truncate">{opt.label}</span>
                 </div>
 
-                {isSelected && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0 ml-2" />}
+                {isSelected && (
+                  <Check className="w-3.5 h-3.5 text-zinc-900 dark:text-zinc-100 shrink-0 ml-2" />
+                )}
               </button>
             );
           })}

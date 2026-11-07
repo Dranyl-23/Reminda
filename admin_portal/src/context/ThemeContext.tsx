@@ -8,12 +8,18 @@ interface ThemeContextType {
   theme: Theme;
   toggleTheme: () => void;
   setTheme: (t: Theme) => void;
+  sidebarCollapsed: boolean;
+  toggleSidebar: () => void;
+  setSidebarCollapsed: (v: boolean) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
   theme: "light",
   toggleTheme: () => {},
   setTheme: () => {},
+  sidebarCollapsed: false,
+  toggleSidebar: () => {},
+  setSidebarCollapsed: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -21,9 +27,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("reminda_theme") as Theme | null;
       if (saved === "dark" || saved === "light") return saved;
-      if (window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
     }
     return "light";
+  });
+
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("reminda_sidebar_collapsed") === "true";
+    }
+    return false;
   });
 
   useEffect(() => {
@@ -41,8 +53,26 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setTheme(next);
   };
 
+  const setSidebarCollapsed = (v: boolean) => {
+    setSidebarCollapsedState(v);
+    localStorage.setItem("reminda_sidebar_collapsed", String(v));
+  };
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
+  };
+
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+    <ThemeContext.Provider
+      value={{
+        theme,
+        toggleTheme,
+        setTheme,
+        sidebarCollapsed,
+        toggleSidebar,
+        setSidebarCollapsed,
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   );

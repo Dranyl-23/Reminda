@@ -2,109 +2,163 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #F8FAFC;
-  --foreground: #0F172A;
+  --background: #FAFAFA;
+  --foreground: #09090B;
+  --card: #FFFFFF;
+  --card-foreground: #09090B;
+  --border: #E4E4E7;
+  --muted: #F4F4F5;
+  --muted-foreground: #71717A;
 }
 
 html.dark {
-  --background: #14151F;
-  --foreground: #FFFFFF;
+  --background: #09090B;
+  --foreground: #FAFAFA;
+  --card: #121215;
+  --card-foreground: #FAFAFA;
+  --border: #27272A;
+  --muted: #18181B;
+  --muted-foreground: #A1A1AA;
   color-scheme: dark;
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
-  transition: background-color 0.25s ease, color 0.25s ease;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
 /* ========================================================= */
-/* BULLETPROOF EXACT REFERENCE DARK THEME (1-to-1 Match)     */
+/* STUDIO ADMIN + REMINDA LANDING MONOCHROME DESIGN SYSTEM   */
 /* ========================================================= */
 
-html.dark body {
-  background-color: #14151F !important;
+/* Refine overly rounded legacy cards into crisp Studio Admin Shadcn cards */
+.rounded-3xl {
+  border-radius: 0.75rem !important; /* rounded-xl (12px) */
+}
+
+.rounded-2xl {
+  border-radius: 0.5rem !important; /* rounded-lg (8px) */
+}
+
+/* Ensure inner page main containers have balanced Studio Admin top padding & centering */
+main.flex-1.px-8.pb-12 {
+  padding-top: 0.5rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Reminda Monochrome Primary CTA overrides across inner pages */
+.bg-blue-600 {
+  background-color: #09090B !important;
   color: #FFFFFF !important;
 }
 
-/* Cards & Surfaces */
-html.dark .bg-white {
-  background-color: #1C1D2B !important;
-  border-color: #282A3D !important;
+.hover\:bg-blue-700:hover,
+.hover\:bg-blue-500:hover {
+  background-color: #27272A !important;
 }
 
-/* Insets, Table Headers, Filter Chips */
+html.dark .bg-blue-600 {
+  background-color: #FAFAFA !important;
+  color: #09090B !important;
+}
+
+html.dark .hover\:bg-blue-700:hover,
+html.dark .hover\:bg-blue-500:hover {
+  background-color: #E4E4E7 !important;
+}
+
+/* Dark Mode Zinc Surfaces (1-to-1 Studio Admin Dark Preset) */
+html.dark body {
+  background-color: #09090B !important;
+  color: #FAFAFA !important;
+}
+
+html.dark .bg-white,
+html.dark .dark\:bg-\[\#1C1D2B\],
+html.dark .dark\:bg-\[\#14151F\] {
+  background-color: #121215 !important;
+  border-color: #27272A !important;
+}
+
 html.dark .bg-slate-50,
+html.dark .bg-slate-50\/60,
 html.dark .bg-slate-50\/70,
 html.dark .bg-slate-50\/80,
-html.dark .bg-slate-50\/90 {
-  background-color: #25273A !important;
-  border-color: #282A3D !important;
+html.dark .bg-slate-50\/90,
+html.dark .bg-zinc-50,
+html.dark .dark\:bg-\[\#25273A\],
+html.dark .dark\:bg-\[\#25273A\]\/60,
+html.dark .dark\:bg-\[\#25273A\]\/80 {
+  background-color: #18181B !important;
+  border-color: #27272A !important;
 }
 
-html.dark .bg-slate-100 {
-  background-color: #25273A !important;
-  color: #9499B0 !important;
+html.dark .bg-slate-100,
+html.dark .bg-zinc-100 {
+  background-color: #1F1F23 !important;
+  color: #A1A1AA !important;
 }
 
-/* Borders */
+/* Crisp 1px Borders */
 html.dark .border-slate-100,
 html.dark .border-slate-200,
 html.dark .border-slate-200\/60,
 html.dark .border-slate-200\/70,
 html.dark .border-slate-200\/80,
-html.dark .border-slate-300 {
-  border-color: #282A3D !important;
+html.dark .border-slate-300,
+html.dark .border-zinc-200,
+html.dark .dark\:border-\[\#282A3D\],
+html.dark .dark\:border-\[\#202231\] {
+  border-color: #27272A !important;
 }
 
 html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
-html.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
-  border-color: #282A3D !important;
+html.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+html.dark .divide-zinc-100 > :not([hidden]) ~ :not([hidden]),
+html.dark .divide-zinc-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #27272A !important;
 }
 
 /* Typography Hierarchy */
 html.dark .text-slate-900,
-html.dark .text-slate-800 {
-  color: #FFFFFF !important;
+html.dark .text-slate-800,
+html.dark .text-zinc-900 {
+  color: #FAFAFA !important;
 }
 
 html.dark .text-slate-700,
-html.dark .text-slate-600 {
-  color: #CBD5E1 !important;
+html.dark .text-slate-600,
+html.dark .text-zinc-700,
+html.dark .text-zinc-600 {
+  color: #D4D4D8 !important;
 }
 
 html.dark .text-slate-500,
-html.dark .text-slate-400 {
-  color: #9499B0 !important;
+html.dark .text-slate-400,
+html.dark .text-zinc-500,
+html.dark .text-zinc-400 {
+  color: #A1A1AA !important;
 }
 
 /* Form Controls & Inputs */
 html.dark input,
 html.dark textarea,
 html.dark select {
-  background-color: #25273A !important;
-  border-color: #282A3D !important;
-  color: #FFFFFF !important;
+  background-color: #18181B !important;
+  border-color: #27272A !important;
+  color: #FAFAFA !important;
 }
 
 html.dark input::placeholder,
 html.dark textarea::placeholder {
-  color: #6E738A !important;
+  color: #71717A !important;
 }
 
-/* Active Navigation Capsule in Dark Mode (Pure White Capsule Pill) */
-html.dark .sidebar-active-tab {
-  background-color: #FFFFFF !important;
-  color: #0F172A !important;
-  box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.35) !important;
-}
-
-html.dark .sidebar-active-tab * {
-  color: #0F172A !important;
-}
-
-/* Custom modern sleek scrollbar */
+/* Subtle clean scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -113,28 +167,28 @@ html.dark .sidebar-active-tab * {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #D4D4D8;
   border-radius: 9999px;
 }
 .dark ::-webkit-scrollbar-thumb {
-  background: #282A3D;
+  background: #27272A;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #A1A1AA;
 }
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: #3B3E59;
+  background: #3F3F46;
 }
 
-/* Executive Dashboard Animations */
+/* Animations */
 @keyframes fadeInScale {
   0% {
     opacity: 0;
-    transform: translateY(12px) scale(0.99);
+    transform: translateY(6px);
   }
   100% {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
@@ -147,30 +201,10 @@ html.dark .sidebar-active-tab * {
   }
 }
 
-@keyframes floatGentle {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-4px);
-  }
-}
-
-@keyframes glowRadar {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.4;
-    transform: scale(1.4);
-  }
-}
-
 @keyframes pageEnter {
   0% {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(4px);
   }
   100% {
     opacity: 1;
@@ -179,22 +213,14 @@ html.dark .sidebar-active-tab * {
 }
 
 .animate-fade-scale {
-  animation: fadeInScale 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeInScale 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-draw-line {
   stroke-dasharray: 1200;
-  animation: drawLine 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.animate-float {
-  animation: floatGentle 3s ease-in-out infinite;
-}
-
-.animate-glow-radar {
-  animation: glowRadar 2s ease-in-out infinite;
+  animation: drawLine 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-page-enter {
-  animation: pageEnter 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: pageEnter 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

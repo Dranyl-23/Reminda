@@ -1,29 +1,30 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { collection, onSnapshot, query, orderBy, getDocs, limit, startAfter } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { UserFeedback, AiTrainingSample, UserAccount, Institution, Announcement } from "@/lib/types";
 import { Header } from "@/components/Header";
 import { SkeletonMetricCards } from "@/components/Skeleton";
 import { CustomDropdown } from "@/components/CustomDropdown";
 import { LivePulseTicker } from "@/components/LivePulseTicker";
-import { 
-  FileText, 
-  CheckSquare, 
+import { getPlatformMeta } from "@/app/users/page";
+import {
+  TrendingUp,
+  ArrowUpRight,
   Sparkles,
-  TrendingUp, 
-  Wallet, 
-  DollarSign, 
+  CheckCircle2,
+  Cpu,
+  School,
   Star,
   Activity,
-  ArrowUpRight,
-  Zap
+  ShieldCheck,
+  Database,
+  Globe,
 } from "lucide-react";
 import Link from "next/link";
 
-// Custom Animated Counter Hook with smooth ease-out
-function useAnimatedCount(target: number, duration: number = 800) {
+function useAnimatedCount(target: number, duration: number = 700) {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -45,14 +46,12 @@ function useAnimatedCount(target: number, duration: number = 800) {
     };
 
     animationFrame = requestAnimationFrame(step);
-
     return () => cancelAnimationFrame(animationFrame);
   }, [target, duration]);
 
   return count;
 }
 
-// Helper to robustly extract a JS Date from Firestore Timestamp or string
 function extractDate(val: any): Date | null {
   if (!val) return null;
   try {
@@ -75,86 +74,67 @@ export default function AnalyticsDashboard() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Filter States
   const [selectedYear, setSelectedYear] = useState("2026");
   const [selectedMonth, setSelectedMonth] = useState("August 2026");
+  const [activeChartTab, setActiveChartTab] = useState<"ingestion" | "retention">("ingestion");
   const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
 
-  const PAGE_SIZE = 50;
-
-  // --- Pagination state ---
-  // Each collection tracks its own "last visible" doc cursor and page index.
-  const [feedbackPage, setFeedbackPage] = useState(0);
-  const [aiPage, setAiPage] = useState(0);
-  const [userPage, setUserPage] = useState(0);
-
-  // Cursor stacks: index 0 = start of page 0, index N = startAfter cursor for page N.
-  const [feedbackCursors, setFeedbackCursors] = useState<any[]>([null]);
-  const [aiCursors, setAiCursors] = useState<any[]>([null]);
-  const [userCursors, setUserCursors] = useState<any[]>([null]);
-
-  // Flags to know whether more pages exist.
-  const [feedbackHasNext, setFeedbackHasNext] = useState(false);
-  const [aiHasNext, setAiHasNext] = useState(false);
-  const [userHasNext, setUserHasNext] = useState(false);
-
   useEffect(() => {
-    // NOTE: Pagination loads up to PAGE_SIZE (50) documents per collection per
-    // page. The year/month filter dropdowns filter within the current page only.
-    // For full server-side date filtering, Firestore composite indexes would be
-    // needed — tracked as a future improvement.
+    const unsubF = onSnapshot(
+      collection(db, "user_feedback"),
+      (snap) => {
+        const list: UserFeedback[] = [];
+        snap.forEach((d) => list.push({ id: d.id, ...d.data() } as UserFeedback));
+        list.sort((a, b) => {
+          const dA = extractDate(a.timestamp) || extractDate(a.createdAtIso);
+          const dB = extractDate(b.timestamp) || extractDate(b.createdAtIso);
+          return (dB ? dB.getTime() : 0) - (dA ? dA.getTime() : 0);
+        });
+        setFeedbacks(list);
+      },
+      (err: any) => console.warn("Feedback fetch notice:", err.message)
+    );
 
-    // 1. Feedbacks (paginated, ordered by timestamp desc)
-    const feedbackQuery = feedbackCursors[feedbackPage]
-      ? query(collection(db, "user_feedback"), orderBy("timestamp", "desc"), limit(PAGE_SIZE + 1), startAfter(feedbackCursors[feedbackPage]))
-      : query(collection(db, "user_feedback"), orderBy("timestamp", "desc"), limit(PAGE_SIZE + 1));
-    getDocs(feedbackQuery).then((snap) => {
-      const docs = snap.docs.slice(0, PAGE_SIZE);
-      setFeedbacks(docs.map((doc) => ({ id: doc.id, ...doc.data() } as UserFeedback)));
-      setFeedbackHasNext(snap.docs.length > PAGE_SIZE);
-      if (snap.docs.length > PAGE_SIZE && feedbackCursors.length === feedbackPage + 1) {
-        setFeedbackCursors((prev) => [...prev, snap.docs[PAGE_SIZE - 1]]);
+    const unsubAi = onSnapshot(
+      collection(db, "ai_training_samples"),
+      (snap) => {
+        const list: AiTrainingSample[] = [];
+        snap.forEach((d) => list.push({ id: d.id, ...d.data() } as AiTrainingSample));
+        list.sort((a, b) => {
+          const dA = extractDate(a.timestamp) || extractDate(a.createdAtIso);
+          const dB = extractDate(b.timestamp) || extractDate(b.createdAtIso);
+          return (dB ? dB.getTime() : 0) - (dA ? dA.getTime() : 0);
+        });
+        setAiSamples(list);
+      },
+      (err: any) => console.warn("AI sample fetch notice:", err.message)
+    );
+
+    const unsubU = onSnapshot(
+      collection(db, "users"),
+      (snap) => {
+        const list: UserAccount[] = [];
+        snap.forEach((d) => list.push({ id: d.id, ...d.data() } as UserAccount));
+        list.sort((a, b) => {
+          const dA = extractDate(a.lastActive) || extractDate(a.updatedAt) || extractDate(a.createdAt);
+          const dB = extractDate(b.lastActive) || extractDate(b.updatedAt) || extractDate(b.createdAt);
+          return (dB ? dB.getTime() : 0) - (dA ? dA.getTime() : 0);
+        });
+        setUsers(list);
+        setIsLoading(false);
+      },
+      (err: any) => {
+        console.warn("Users fetch notice:", err.message);
+        setIsLoading(false);
       }
-    }).catch((err: any) => console.warn("Feedback fetch notice:", err.message));
+    );
 
-    // 2. AI Samples (paginated, ordered by timestamp desc)
-    const aiQuery = aiCursors[aiPage]
-      ? query(collection(db, "ai_training_samples"), orderBy("timestamp", "desc"), limit(PAGE_SIZE + 1), startAfter(aiCursors[aiPage]))
-      : query(collection(db, "ai_training_samples"), orderBy("timestamp", "desc"), limit(PAGE_SIZE + 1));
-    getDocs(aiQuery).then((snap) => {
-      const docs = snap.docs.slice(0, PAGE_SIZE);
-      setAiSamples(docs.map((doc) => ({ id: doc.id, ...doc.data() } as AiTrainingSample)));
-      setAiHasNext(snap.docs.length > PAGE_SIZE);
-      if (snap.docs.length > PAGE_SIZE && aiCursors.length === aiPage + 1) {
-        setAiCursors((prev) => [...prev, snap.docs[PAGE_SIZE - 1]]);
-      }
-    }).catch((err: any) => console.warn("AI sample fetch notice:", err.message));
-
-    // 3. Users (paginated — no guaranteed timestamp field so no orderBy)
-    const userQuery = userCursors[userPage]
-      ? query(collection(db, "users"), limit(PAGE_SIZE + 1), startAfter(userCursors[userPage]))
-      : query(collection(db, "users"), limit(PAGE_SIZE + 1));
-    getDocs(userQuery).then((snap) => {
-      const docs = snap.docs.slice(0, PAGE_SIZE);
-      setUsers(docs.map((doc) => ({ id: doc.id, ...doc.data() } as UserAccount)));
-      setUserHasNext(snap.docs.length > PAGE_SIZE);
-      setIsLoading(false);
-      if (snap.docs.length > PAGE_SIZE && userCursors.length === userPage + 1) {
-        setUserCursors((prev) => [...prev, snap.docs[PAGE_SIZE - 1]]);
-      }
-    }).catch((err: any) => {
-      console.warn("Users fetch notice:", err.message);
-      setIsLoading(false);
-    });
-
-    // 4. Institutions — small/bounded collection, single snapshot is safe
     const unsubI = onSnapshot(collection(db, "institutions"), (snap) => {
       const list: Institution[] = [];
       snap.forEach((doc) => list.push({ id: doc.id, ...doc.data() } as Institution));
       setInstitutions(list);
     });
 
-    // 5. Announcements — small/bounded collection, single snapshot is safe
     const unsubA = onSnapshot(collection(db, "announcements"), (snap) => {
       const list: Announcement[] = [];
       snap.forEach((doc) => list.push({ id: doc.id, ...doc.data() } as Announcement));
@@ -162,16 +142,26 @@ export default function AnalyticsDashboard() {
     });
 
     return () => {
+      unsubF();
+      unsubAi();
+      unsubU();
       unsubI();
       unsubA();
     };
-  }, [feedbackPage, aiPage, userPage]);
-
-  // --- DYNAMIC CALCULATIONS ---
+  }, []);
 
   const totalUsers = users.length;
+  const totalFeedbacks = feedbacks.length;
+  const totalAiSamples = aiSamples.length;
+  const windowsUsersCount = useMemo(
+    () => users.filter((u) => getPlatformMeta(u.platform).os === "Windows").length,
+    [users]
+  );
+  const androidUsersCount = useMemo(
+    () => users.filter((u) => getPlatformMeta(u.platform).os === "Android").length,
+    [users]
+  );
 
-  // Build high-precision avatar lookup map from users collection
   const userPhotos = useMemo(() => {
     const map: Record<string, string> = {};
     users.forEach((u) => {
@@ -186,7 +176,8 @@ export default function AnalyticsDashboard() {
   const getUserAvatar = (f: UserFeedback) => {
     if (f.userPhotoUrl) return f.userPhotoUrl;
     if (f.userId && userPhotos[f.userId]) return userPhotos[f.userId];
-    if (f.contactEmail && userPhotos[f.contactEmail.toLowerCase().trim()]) return userPhotos[f.contactEmail.toLowerCase().trim()];
+    if (f.contactEmail && userPhotos[f.contactEmail.toLowerCase().trim()])
+      return userPhotos[f.contactEmail.toLowerCase().trim()];
     return null;
   };
 
@@ -210,14 +201,10 @@ export default function AnalyticsDashboard() {
     }
     return raw || "Reminda User";
   };
-  const totalFeedbacks = feedbacks.length;
-  const totalAiSamples = aiSamples.length;
 
-  // Animated Count Ups for Smooth Numbers
-  const animatedUsers = useAnimatedCount(totalUsers, 800);
-  const animatedAiSamples = useAnimatedCount(totalAiSamples, 900);
+  const animatedUsers = useAnimatedCount(totalUsers, 700);
+  const animatedAiSamples = useAnimatedCount(totalAiSamples, 800);
 
-  // 2. Average Rating Calculation
   const averageRating = useMemo(() => {
     if (feedbacks.length === 0) return 5.0;
     const sum = feedbacks.reduce((acc, f) => acc + (f.rating || 5), 0);
@@ -230,7 +217,6 @@ export default function AnalyticsDashboard() {
     return Math.round((positiveCount / feedbacks.length) * 100);
   }, [feedbacks]);
 
-  // 3. AI OCR Verified Accuracy
   const verifiedAccuracy = useMemo(() => {
     if (aiSamples.length === 0) return "98.6%";
     const cleanCount = aiSamples.filter((s) => s.qualityStatus === "clean" || !s.qualityStatus).length;
@@ -238,14 +224,16 @@ export default function AnalyticsDashboard() {
     return `${rate}%`;
   }, [aiSamples]);
 
-  // 4. Total Scans Ingested
   const totalSchedulesScanned = useMemo(() => {
     return totalAiSamples > 0 ? totalAiSamples * 6 + totalUsers * 4 : totalUsers * 3 + 12;
   }, [totalAiSamples, totalUsers]);
 
-  const animatedScans = useAnimatedCount(totalSchedulesScanned, 1000);
+  const animatedScans = useAnimatedCount(totalSchedulesScanned, 900);
 
-  // 5. 100% Real-Time Monthly Ingestion Aggregation for Bar Chart (Jan - Dec)
+  const totalExtractedClasses = useMemo(() => {
+    return aiSamples.reduce((sum, s) => sum + (s.entriesCount || s.verifiedEntries?.length || 5), 0);
+  }, [aiSamples]);
+
   const monthlyData = useMemo(() => {
     const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
     const targetYear = parseInt(selectedYear) || new Date().getFullYear();
@@ -255,19 +243,17 @@ export default function AnalyticsDashboard() {
     const scanCounts = new Array(12).fill(0);
     const classesCounts = new Array(12).fill(0);
 
-    // 1. Group real AI Training Samples / Scans by exact month
     aiSamples.forEach((s) => {
       const d = extractDate(s.timestamp) || extractDate(s.createdAtIso);
       if (d && d.getFullYear() === targetYear) {
         const m = d.getMonth();
         if (m >= 0 && m < 12) {
           scanCounts[m] += 1;
-          classesCounts[m] += (s.verifiedEntries?.length || 1);
+          classesCounts[m] += s.verifiedEntries?.length || 1;
         }
       }
     });
 
-    // 2. Group User Registrations / Active Mobile Schedules by exact month
     users.forEach((u) => {
       const d = extractDate(u.lastActive) || extractDate(u.createdAt) || extractDate(u.updatedAt);
       if (d && d.getFullYear() === targetYear) {
@@ -278,7 +264,6 @@ export default function AnalyticsDashboard() {
       }
     });
 
-    // 3. User feedback interactions
     feedbacks.forEach((f) => {
       const d = extractDate(f.timestamp) || extractDate(f.createdAtIso);
       if (d && d.getFullYear() === targetYear) {
@@ -299,7 +284,7 @@ export default function AnalyticsDashboard() {
 
       return {
         month: m,
-        height: `${Math.max(percent, val > 0 ? 15 : 6)}%`,
+        height: `${Math.max(percent, val > 0 ? 14 : 6)}%`,
         value: val,
         classCount,
         isActive: isCurrent,
@@ -307,52 +292,67 @@ export default function AnalyticsDashboard() {
     });
   }, [aiSamples, users, feedbacks, selectedYear]);
 
-  // 6. Dynamic Sector Breakdown Donut (Colleges, Hospitals, Corporate)
   const sectorBreakdown = useMemo(() => {
-    const totalInst = institutions.length || 556;
-    const colleges = institutions.filter(i => i.category?.includes("College") || i.category?.includes("University")).length || 420;
-    const hospitals = institutions.filter(i => i.category?.includes("Hospital") || i.category?.includes("Clinic")).length || 65;
+    const totalInst = institutions.length || 576;
+    const colleges =
+      institutions.filter(
+        (i) =>
+          i.category?.toLowerCase().includes("college") ||
+          i.category?.toLowerCase().includes("university") ||
+          i.category?.toLowerCase().includes("school")
+      ).length || 435;
+    const hospitals =
+      institutions.filter(
+        (i) =>
+          i.category?.toLowerCase().includes("hospital") ||
+          i.category?.toLowerCase().includes("clinic") ||
+          i.category?.toLowerCase().includes("duty")
+      ).length || 68;
     const corporate = Math.max(0, totalInst - colleges - hospitals);
 
-    const rawStudent = (colleges / totalInst) * 100;
-    const rawWork = (corporate / totalInst) * 100;
-    const studentPct = Math.round(rawStudent) || 62;
-    const workPct = Math.round(rawWork) || 26;
+    const studentPct = Math.round((colleges / totalInst) * 100) || 76;
+    const workPct = Math.round((corporate / totalInst) * 100) || 12;
     const healthPct = Math.max(0, 100 - studentPct - workPct);
 
-    const gap = 1.6;
-
     return {
+      totalInst,
+      colleges,
+      corporate,
+      hospitals,
       student: studentPct,
       work: workPct,
       health: healthPct,
-      studentDash: Math.max(studentPct - gap, 1),
-      workDash: Math.max(workPct - gap, 1),
-      healthDash: Math.max(healthPct - gap, 1),
-      offsetWork: -(studentPct),
-      offsetHealth: -(studentPct + workPct)
     };
   }, [institutions]);
 
-  // 7. 100% Real-Time Dynamic Activity Retention Spline Points & Bezier Path Generation
   const activityPoints = useMemo(() => {
-    const targetMonthIdx = selectedMonth.includes("Jan") ? 0
-      : selectedMonth.includes("Feb") ? 1
-      : selectedMonth.includes("Mar") ? 2
-      : selectedMonth.includes("Apr") ? 3
-      : selectedMonth.includes("May") ? 4
-      : selectedMonth.includes("Jun") ? 5
-      : selectedMonth.includes("Jul") ? 6
-      : selectedMonth.includes("Aug") ? 7
-      : selectedMonth.includes("Sep") ? 8
-      : selectedMonth.includes("Oct") ? 9
-      : selectedMonth.includes("Nov") ? 10
-      : selectedMonth.includes("Dec") ? 11
+    const targetMonthIdx = selectedMonth.includes("Jan")
+      ? 0
+      : selectedMonth.includes("Feb")
+      ? 1
+      : selectedMonth.includes("Mar")
+      ? 2
+      : selectedMonth.includes("Apr")
+      ? 3
+      : selectedMonth.includes("May")
+      ? 4
+      : selectedMonth.includes("Jun")
+      ? 5
+      : selectedMonth.includes("Jul")
+      ? 6
+      : selectedMonth.includes("Aug")
+      ? 7
+      : selectedMonth.includes("Sep")
+      ? 8
+      : selectedMonth.includes("Oct")
+      ? 9
+      : selectedMonth.includes("Nov")
+      ? 10
+      : selectedMonth.includes("Dec")
+      ? 11
       : new Date().getMonth();
 
     const targetYear = parseInt(selectedYear) || new Date().getFullYear();
-
-    // 5 Weekly Period Buckets: 1-7, 8-14, 15-21, 22-28, 29+
     const bucketUsers = [0, 0, 0, 0, 0];
     const bucketSyncs = [0, 0, 0, 0, 0];
 
@@ -382,16 +382,44 @@ export default function AnalyticsDashboard() {
       }
     });
 
-    const monthAbbr = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][targetMonthIdx];
+    const monthAbbr = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][
+      targetMonthIdx
+    ];
     const totalUsersCount = users.length;
     const totalAiCount = aiSamples.length;
 
     const data = [
-      { label: `${monthAbbr} 1-7`, users: Math.max(bucketUsers[0], Math.round(totalUsersCount * 0.3)), syncs: Math.max(bucketSyncs[0], Math.round(totalAiCount * 0.2)), yVal: 95 },
-      { label: `${monthAbbr} 8-14`, users: Math.max(bucketUsers[1], Math.round(totalUsersCount * 0.5)), syncs: Math.max(bucketSyncs[1], Math.round(totalAiCount * 0.4)), yVal: 75 },
-      { label: `${monthAbbr} 15-21`, users: Math.max(bucketUsers[2], Math.round(totalUsersCount * 0.7)), syncs: Math.max(bucketSyncs[2], Math.round(totalAiCount * 0.7)), yVal: 55 },
-      { label: `${monthAbbr} 22-28`, users: Math.max(bucketUsers[3], totalUsersCount), syncs: Math.max(bucketSyncs[3], totalAiCount), yVal: 32 },
-      { label: "Live Today", users: Math.max(bucketUsers[4], totalUsersCount), syncs: Math.max(bucketSyncs[4], totalAiCount + 2), yVal: 18, isLive: true },
+      {
+        label: `${monthAbbr} 1–7`,
+        users: Math.max(bucketUsers[0], Math.round(totalUsersCount * 0.3)),
+        syncs: Math.max(bucketSyncs[0], Math.round(totalAiCount * 0.2)),
+        yVal: 95,
+      },
+      {
+        label: `${monthAbbr} 8–14`,
+        users: Math.max(bucketUsers[1], Math.round(totalUsersCount * 0.5)),
+        syncs: Math.max(bucketSyncs[1], Math.round(totalAiCount * 0.4)),
+        yVal: 74,
+      },
+      {
+        label: `${monthAbbr} 15–21`,
+        users: Math.max(bucketUsers[2], Math.round(totalUsersCount * 0.7)),
+        syncs: Math.max(bucketSyncs[2], Math.round(totalAiCount * 0.7)),
+        yVal: 52,
+      },
+      {
+        label: `${monthAbbr} 22–28`,
+        users: Math.max(bucketUsers[3], totalUsersCount),
+        syncs: Math.max(bucketSyncs[3], totalAiCount),
+        yVal: 30,
+      },
+      {
+        label: "Live Today",
+        users: Math.max(bucketUsers[4], totalUsersCount),
+        syncs: Math.max(bucketSyncs[4], totalAiCount + 2),
+        yVal: 16,
+        isLive: true,
+      },
     ];
 
     const width = 600;
@@ -406,7 +434,6 @@ export default function AnalyticsDashboard() {
     }));
   }, [users, aiSamples, selectedMonth, selectedYear]);
 
-  // Construct smooth cubic bezier SVG paths
   const { splineLinePath, splineAreaPath } = useMemo(() => {
     if (activityPoints.length === 0) return { splineLinePath: "", splineAreaPath: "" };
 
@@ -422,7 +449,9 @@ export default function AnalyticsDashboard() {
       const cp2x = p2.x - (p3.x - p1.x) / 6;
       const cp2y = p2.y - (p3.y - p1.y) / 6;
 
-      linePath += ` C ${Math.round(cp1x)} ${Math.round(cp1y)}, ${Math.round(cp2x)} ${Math.round(cp2y)}, ${p2.x} ${p2.y}`;
+      linePath += ` C ${Math.round(cp1x)} ${Math.round(cp1y)}, ${Math.round(cp2x)} ${Math.round(
+        cp2y
+      )}, ${p2.x} ${p2.y}`;
     }
 
     const lastPt = activityPoints[activityPoints.length - 1];
@@ -432,7 +461,6 @@ export default function AnalyticsDashboard() {
     return { splineLinePath: linePath, splineAreaPath: areaPath };
   }, [activityPoints]);
 
-  // 8. 100% Real-Time AI Engine Source Donut (Offline ML vs Cloud Gemini)
   const engineBreakdown = useMemo(() => {
     let offlineCount = 0;
     let cloudCount = 0;
@@ -448,629 +476,635 @@ export default function AnalyticsDashboard() {
 
     const total = offlineCount + cloudCount;
     if (total === 0) {
-      return {
-        offline: 100,
-        cloud: 0,
-        offlineCount: 0,
-        cloudCount: 0,
-        offlineDash: 100,
-        cloudDash: 0,
-        offsetCloud: -100
-      };
+      return { offline: 100, cloud: 0, offlineCount: 0, cloudCount: 0 };
     }
-
-    const rawOffline = (offlineCount / total) * 100;
-    const offlinePct = Math.round(rawOffline);
+    const offlinePct = Math.round((offlineCount / total) * 100);
     const cloudPct = Math.max(0, 100 - offlinePct);
-    const gap = (offlinePct > 0 && cloudPct > 0) ? 1.8 : 0;
-
-    return {
-      offline: offlinePct,
-      cloud: cloudPct,
-      offlineCount,
-      cloudCount,
-      offlineDash: Math.max(offlinePct - gap, 0),
-      cloudDash: Math.max(cloudPct - gap, 0),
-      offsetCloud: -offlinePct
-    };
+    return { offline: offlinePct, cloud: cloudPct, offlineCount, cloudCount };
   }, [aiSamples]);
 
   return (
     <>
       <Header title="Analytics" />
-      <main className="flex-1 px-8 pb-12 space-y-6 max-w-[1600px] w-full">
-        {/* Loading Skeletons */}
+      <main className="flex-1 p-6 lg:p-8 space-y-6 max-w-[1600px] w-full mx-auto">
+        {/* Studio Admin Page Header & Quick Filter Toolbar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+              Analytics Overview
+            </h2>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+              Real-time schedule ingestion, AI OCR dataset telemetry, and user activity across Android &amp; Windows.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Segmented Year Toggle */}
+            <div className="inline-flex items-center p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800">
+              {["2026", "2025", "2024"].map((yr) => (
+                <button
+                  key={yr}
+                  type="button"
+                  onClick={() => setSelectedYear(yr)}
+                  className={`px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                    selectedYear === yr
+                      ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-2xs"
+                      : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200"
+                  }`}
+                >
+                  {yr}
+                </button>
+              ))}
+            </div>
+
+            <Link
+              href="/dataset"
+              className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-200 text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors"
+            >
+              <Database className="w-3.5 h-3.5 text-zinc-500" />
+              <span>Dataset Lab</span>
+            </Link>
+
+            <Link
+              href="/website"
+              className="px-3.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-950 text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>Manage Website</span>
+            </Link>
+          </div>
+        </div>
+
         {isLoading ? (
           <SkeletonMetricCards count={4} />
         ) : (
           <>
-            {/* TOP SECTION: 2x2 Grid of Left Metric Cards + 2 Right Donut Cards */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-              {/* Left 4 Mini Cards (Col 1-6) */}
-              <div className="lg:col-span-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
-                {/* Card 1: Scanned Schedules */}
-                <div 
-                  style={{ animationDelay: "0ms" }}
-                  className="animate-fade-scale p-6 rounded-3xl bg-white dark:bg-[#1C1D2B] border border-slate-200/70 dark:border-[#282A3D]/80 shadow-xs flex flex-col justify-between hover:shadow-lg hover:-translate-y-1 hover:border-blue-300 transition-all duration-300 group cursor-default"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-500 dark:text-slate-300">Schedules Scanned</span>
-                    <div className="p-2.5 rounded-2xl bg-blue-50 text-blue-600 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
-                      <FileText className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="my-2">
-                    <p className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                      {animatedScans}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
-                    <TrendingUp className="w-3.5 h-3.5" />
-                    <span>+12.4% <span className="text-slate-400 font-medium">live synced across devices</span></span>
-                  </div>
-                </div>
-
-                {/* Card 2: AI OCR Accuracy */}
-                <div 
-                  style={{ animationDelay: "100ms" }}
-                  className="animate-fade-scale p-6 rounded-3xl bg-white dark:bg-[#1C1D2B] border border-slate-200/70 dark:border-[#282A3D]/80 shadow-xs flex flex-col justify-between hover:shadow-lg hover:-translate-y-1 hover:border-emerald-300 transition-all duration-300 group cursor-default"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-500 dark:text-slate-300">Verified Accuracy</span>
-                    <div className="p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300">
-                      <CheckSquare className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="my-2">
-                    <p className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{verifiedAccuracy}</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
-                    <TrendingUp className="w-3.5 h-3.5" />
-                    <span>Spatial Neural OCR <span className="text-slate-400 font-medium">v2.0 engine</span></span>
-                  </div>
-                </div>
-
-                {/* Card 3: Total AI Dataset */}
-                <div 
-                  style={{ animationDelay: "200ms" }}
-                  className="animate-fade-scale p-6 rounded-3xl bg-white dark:bg-[#1C1D2B] border border-slate-200/70 dark:border-[#282A3D]/80 shadow-xs flex flex-col justify-between hover:shadow-lg hover:-translate-y-1 hover:border-purple-300 transition-all duration-300 group cursor-default"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-500 dark:text-slate-300">AI Dataset Telemetry</span>
-                    <div className="p-2.5 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 group-hover:scale-110 group-hover:bg-purple-600 group-hover:text-white transition-all duration-300">
-                      <Sparkles className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="my-2">
-                    <p className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                      {animatedAiSamples}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600">
-                    <Link href="/dataset" className="hover:underline flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                      <span>MMA Dataset Lab</span>
-                      <ArrowUpRight className="w-3.5 h-3.5" />
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Card 4: Average App Rating */}
-                <div 
-                  style={{ animationDelay: "300ms" }}
-                  className="animate-fade-scale p-6 rounded-3xl bg-white dark:bg-[#1C1D2B] border border-slate-200/70 dark:border-[#282A3D]/80 shadow-xs flex flex-col justify-between hover:shadow-lg hover:-translate-y-1 hover:border-amber-300 transition-all duration-300 group cursor-default"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-500 dark:text-slate-300">Customer Rating</span>
-                    <div className="p-2.5 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 group-hover:scale-110 group-hover:bg-amber-500 group-hover:text-white transition-all duration-300">
-                      <Star className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="my-2">
-                    <p className="text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-1">
-                      <span>{averageRating}</span>
-                      <span className="text-yellow-500 text-2xl animate-pulse">★</span>
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
-                    <span>{positiveFeedbackPercent}% Positive Feedback</span>
-                    <span className="text-slate-400 font-medium">({totalFeedbacks} reviews)</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right 2 Donut Cards (Col 7-12) */}
-              <div className="lg:col-span-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
-                {/* Donut Card 1: Users by Sector */}
-                <div 
-                  style={{ animationDelay: "400ms" }}
-                  className="animate-fade-scale p-6 rounded-3xl bg-white dark:bg-[#1C1D2B] border border-slate-200/70 dark:border-[#282A3D]/80 shadow-xs flex flex-col justify-between hover:shadow-lg hover:-translate-y-1 hover:border-blue-200 transition-all duration-300"
-                >
-                  <div>
-                    <span className="text-xs font-bold text-slate-500 dark:text-slate-300">Active Mobile Users</span>
-                    <p className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-1">{animatedUsers}</p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-300 font-medium">Realtime registered devices</p>
-                  </div>
-
-                  <div className="flex items-center justify-between mt-4">
-                    {/* Dynamic SVG Thick Gold Segmented Donut (Reference Exact Match) */}
-                    <div className="relative w-28 h-28 shrink-0 hover:scale-105 transition-transform duration-300">
-                      <svg className="w-full h-full -rotate-90 drop-shadow-sm" viewBox="0 0 36 36">
-                        {/* Background Base Ring */}
-                        <circle cx="18" cy="18" r="13" fill="transparent" stroke="#25273A" strokeWidth="7" />
-                        
-                        {/* Segment 1: Vivid Gold (62% Colleges/Students) */}
-                        <circle 
-                          cx="18" 
-                          cy="18" 
-                          r="13" 
-                          fill="transparent" 
-                          stroke="#FFB800" 
-                          strokeWidth="7" 
-                          strokeDasharray={`${sectorBreakdown.studentDash} ${100 - sectorBreakdown.studentDash}`} 
-                          strokeDashoffset="0" 
-                          className="transition-all duration-1000 ease-out"
-                        />
-                        
-                        {/* Segment 2: Warm Soft Yellow (26% Workplace) */}
-                        <circle 
-                          cx="18" 
-                          cy="18" 
-                          r="13" 
-                          fill="transparent" 
-                          stroke="#FCD34D" 
-                          strokeWidth="7" 
-                          strokeDasharray={`${sectorBreakdown.workDash} ${100 - sectorBreakdown.workDash}`} 
-                          strokeDashoffset={`${sectorBreakdown.offsetWork}`} 
-                          className="transition-all duration-1000 ease-out"
-                        />
-                        
-                        {/* Segment 3: Vanilla Cream (12% Healthcare) */}
-                        <circle 
-                          cx="18" 
-                          cy="18" 
-                          r="13" 
-                          fill="transparent" 
-                          stroke="#FEF3C7" 
-                          strokeWidth="7" 
-                          strokeDasharray={`${sectorBreakdown.healthDash} ${100 - sectorBreakdown.healthDash}`} 
-                          strokeDashoffset={`${sectorBreakdown.offsetHealth}`} 
-                          className="transition-all duration-1000 ease-out"
-                        />
-                      </svg>
-                    </div>
-
-                    {/* Legend */}
-                    <div className="space-y-1.5 text-[11px] font-semibold text-slate-600 dark:text-[#9499B0]">
-                      <div className="flex items-center gap-2 hover:translate-x-1 transition-transform">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#FFB800] shadow-xs" />
-                        <span>{sectorBreakdown.student}% <span className="text-slate-400 dark:text-[#6E738A] font-normal">Students</span></span>
-                      </div>
-                      <div className="flex items-center gap-2 hover:translate-x-1 transition-transform">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#FCD34D] shadow-xs" />
-                        <span>{sectorBreakdown.work}% <span className="text-slate-400 dark:text-[#6E738A] font-normal">Workplace</span></span>
-                      </div>
-                      <div className="flex items-center gap-2 hover:translate-x-1 transition-transform">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#FEF3C7] shadow-xs" />
-                        <span>{sectorBreakdown.health}% <span className="text-slate-400 dark:text-[#6E738A] font-normal">Healthcare</span></span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Donut Card 2: AI OCR Sources */}
-                <div 
-                  style={{ animationDelay: "500ms" }}
-                  className="animate-fade-scale p-6 rounded-3xl bg-white dark:bg-[#1C1D2B] border border-slate-200/70 dark:border-[#282A3D]/80 shadow-xs flex flex-col justify-between hover:shadow-lg hover:-translate-y-1 hover:border-indigo-200 transition-all duration-300"
-                >
-                  <div>
-                    <span className="text-xs font-bold text-slate-500 dark:text-[#9499B0]">Scan Engine Processing</span>
-                    <p className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-1">{animatedScans}</p>
-                    <p className="text-[11px] text-slate-500 dark:text-[#6E738A] font-medium">Total OCR operations</p>
-                  </div>
-
-                  <div className="flex items-center justify-between mt-4">
-                    {/* SVG Segmented Thick Blue Duo Donut (Reference Exact Match) */}
-                    <div className="relative w-28 h-28 shrink-0 hover:scale-105 transition-transform duration-300">
-                      <svg className="w-full h-full -rotate-90 drop-shadow-sm" viewBox="0 0 36 36">
-                        {/* Background Base Ring */}
-                        <circle cx="18" cy="18" r="13" fill="transparent" stroke="#25273A" strokeWidth="7" />
-                        
-                        {/* Segment 1: Electric Blue (70% On-Device ML) */}
-                        <circle 
-                          cx="18" 
-                          cy="18" 
-                          r="13" 
-                          fill="transparent" 
-                          stroke="#3B82F6" 
-                          strokeWidth="7" 
-                          strokeDasharray={`${engineBreakdown.offlineDash} ${100 - engineBreakdown.offlineDash}`} 
-                          strokeDashoffset="0" 
-                          className="transition-all duration-1000 ease-out"
-                        />
-                        
-                        {/* Segment 2: Soft Azure Blue (30% Cloud Gemini) */}
-                        <circle 
-                          cx="18" 
-                          cy="18" 
-                          r="13" 
-                          fill="transparent" 
-                          stroke="#93C5FD" 
-                          strokeWidth="7" 
-                          strokeDasharray={`${engineBreakdown.cloudDash} ${100 - engineBreakdown.cloudDash}`} 
-                          strokeDashoffset={`${engineBreakdown.offsetCloud}`} 
-                          className="transition-all duration-1000 ease-out"
-                        />
-                      </svg>
-                    </div>
-
-                    {/* Legend */}
-                    <div className="space-y-1.5 text-[11px] font-semibold text-slate-600 dark:text-[#9499B0]">
-                      <div className="flex items-center gap-2 hover:translate-x-1 transition-transform">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#3B82F6] shadow-xs" />
-                        <span>{engineBreakdown.offline}% <span className="text-slate-400 dark:text-[#6E738A] font-normal">On-Device ML</span></span>
-                      </div>
-                      <div className="flex items-center gap-2 hover:translate-x-1 transition-transform">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#93C5FD] shadow-xs" />
-                        <span>{engineBreakdown.cloud}% <span className="text-slate-400 dark:text-[#6E738A] font-normal">Cloud Gemini</span></span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* MIDDLE SECTION: Left Dynamic Bar Chart + Right Performance Cards */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-              {/* Left: Dynamic Monthly Bar Chart (Col 1-7) */}
-              <div 
-                style={{ animationDelay: "600ms" }}
-                className="animate-fade-scale lg:col-span-7 p-6 rounded-3xl bg-white dark:bg-[#1C1D2B] border border-slate-200/70 dark:border-[#282A3D]/80 shadow-xs flex flex-col justify-between hover:shadow-lg transition-all duration-300"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                      <span>Schedule Ingestion Dynamics</span>
-                      <Zap className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
-                    </h3>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-300">Monthly breakdown of scanned study loads and timetables</p>
-                  </div>
-                  
-                  {/* Dynamic Year Selector Dropdown */}
-                  <CustomDropdown
-                    value={selectedYear}
-                    onChange={setSelectedYear}
-                    compact
-                    buttonClassName="bg-slate-50 dark:bg-[#25273A] border border-slate-200 dark:border-[#282A3D] text-slate-700 dark:text-slate-200 font-bold"
-                    options={["2026", "2025", "2024"]}
-                  />
-                </div>
-
-                {/* Vertical Dynamic Rounded Bar Chart with Height Animation & Real-Time Tooltips */}
-                <div className="flex items-end justify-between h-44 px-2 pt-4">
-                  {monthlyData.map((col, idx) => (
-                    <div key={idx} className="flex flex-col items-center gap-2 group flex-1 relative">
-                      {/* Interactive Hover Tooltip */}
-                      <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-20 bg-slate-900 dark:bg-slate-800 text-white text-[10px] font-bold px-2.5 py-1 rounded-xl shadow-xl whitespace-nowrap -translate-y-1 group-hover:translate-y-0 flex flex-col items-center">
-                        <p>{col.value} scan{col.value !== 1 ? "s" : ""}</p>
-                        {col.classCount > 0 && <p className="text-[9px] text-blue-300 font-normal">{col.classCount} classes</p>}
-                        <div className="w-1.5 h-1.5 bg-slate-900 dark:bg-slate-800 rotate-45 -mb-1 mt-0.5" />
-                      </div>
-
-                      <div className="w-4 sm:w-5 bg-slate-100 dark:bg-[#25273A] rounded-full h-32 flex items-end overflow-hidden p-0.5 relative group-hover:bg-blue-50 dark:group-hover:bg-[#2e3148] transition-colors cursor-pointer">
-                        <div
-                          className={`w-full rounded-full transition-all duration-700 ease-out group-hover:scale-y-105 ${
-                            col.isActive 
-                              ? "bg-linear-to-t from-blue-700 to-blue-500 shadow-md shadow-blue-500/30 ring-2 ring-blue-400/40" 
-                              : col.value > 0
-                              ? "bg-linear-to-t from-blue-500/80 to-blue-400/90 hover:from-blue-600 hover:to-blue-400"
-                              : "bg-slate-300/40 dark:bg-slate-700/40"
-                          }`}
-                          style={{ 
-                            height: col.height,
-                            transitionDelay: `${idx * 25}ms`
-                          }}
-                        />
-                      </div>
-                      <span className={`text-[10px] font-bold transition-colors ${
-                        col.isActive ? "text-blue-600 font-black scale-110" : "text-slate-400 group-hover:text-slate-800 dark:text-slate-200"
-                      }`}>
-                        {col.month}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Right: 2 Performance Stats Cards (Col 8-12) */}
-              <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-5">
-                {/* Card 1: OCR Processing Latency */}
-                <div 
-                  style={{ animationDelay: "700ms" }}
-                  className="animate-fade-scale p-6 rounded-3xl bg-white dark:bg-[#1C1D2B] border border-slate-200/70 dark:border-[#282A3D]/80 shadow-xs flex flex-col justify-between hover:shadow-lg hover:-translate-y-1 hover:border-blue-200 transition-all duration-300 group"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="p-2.5 rounded-2xl bg-blue-50 text-blue-600 group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
-                      <Wallet className="w-5 h-5" />
-                    </div>
-                    <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50">
-                      0.3s Offline
-                    </span>
-                  </div>
-                  <div className="my-4">
-                    <span className="text-xs font-bold text-slate-500 dark:text-slate-300">Average OCR Latency</span>
-                    <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-1">0.34s</p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-300 font-medium">MMA Spatial Vision Engine</p>
-                  </div>
-                </div>
-
-                {/* Card 2: Cloud Sync Reliability */}
-                <div 
-                  style={{ animationDelay: "800ms" }}
-                  className="animate-fade-scale p-6 rounded-3xl bg-white dark:bg-[#1C1D2B] border border-slate-200/70 dark:border-[#282A3D]/80 shadow-xs flex flex-col justify-between hover:shadow-lg hover:-translate-y-1 hover:border-emerald-200 transition-all duration-300 group"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300">
-                      <DollarSign className="w-5 h-5" />
-                    </div>
-                    <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50">
-                      100% Live
-                    </span>
-                  </div>
-                  <div className="my-4">
-                    <span className="text-xs font-bold text-slate-500 dark:text-slate-300">Cloud Sync Reliability</span>
-                    <p className="text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-1">99.99%</p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-300 font-medium">Firestore WebSocket Channel</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* LIVE SYSTEM ACTIVITY PULSE TICKER */}
-            <LivePulseTicker 
-              users={users} 
-              feedbacks={feedbacks} 
-              aiSamples={aiSamples} 
-              announcements={announcements} 
-              userPhotos={userPhotos} 
-            />
-
-            {/* BOTTOM SECTION: Left Activity Retention Spline + Right Live Feedbacks */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-              {/* Left: Dynamic Animated Spline Chart (Col 1-7) */}
-              <div 
-                style={{ animationDelay: "900ms" }}
-                className="animate-fade-scale lg:col-span-7 p-6 rounded-3xl bg-white dark:bg-[#1C1D2B] border border-slate-200/70 dark:border-[#282A3D]/80 shadow-xs flex flex-col justify-between hover:shadow-lg transition-all duration-300 relative overflow-hidden group"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">User Activity & Retention</h3>
-                      <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 shadow-xs">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                        Live Stream
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-300">Weekly active mobile engagement trajectory</p>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <CustomDropdown
-                      value={selectedMonth}
-                      onChange={setSelectedMonth}
-                      compact
-                      buttonClassName="bg-slate-50 dark:bg-[#25273A] border border-slate-200 dark:border-[#282A3D] text-slate-700 dark:text-slate-200 font-bold"
-                      options={["August 2026", "July 2026", "June 2026", "All Time"]}
-                    />
-                  </div>
-                </div>
-
-                {/* Hover Tooltip Indicator Badge */}
-                <div className="flex items-center justify-between py-1.5 px-3 bg-slate-50/90 dark:bg-[#25273A]/80 rounded-2xl border border-slate-100/90 dark:border-[#282A3D] mb-2 transition-all duration-300">
-                  <div className="flex items-center gap-4 text-[11px]">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-slate-400 font-medium">Selected Period:</span>
-                      <span className="font-bold text-slate-800 dark:text-slate-200">
-                        {hoveredPoint !== null ? activityPoints[hoveredPoint]?.label : activityPoints[activityPoints.length - 1]?.label}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-slate-400 font-medium">Active Devices:</span>
-                      <span className="font-bold text-blue-600">
-                        {hoveredPoint !== null ? activityPoints[hoveredPoint]?.users : activityPoints[activityPoints.length - 1]?.users} users
-                      </span>
-                    </div>
-                    <div className="hidden sm:flex items-center gap-1.5">
-                      <span className="text-slate-400 font-medium">Cloud Syncs:</span>
-                      <span className="font-bold text-indigo-600">
-                        {hoveredPoint !== null ? activityPoints[hoveredPoint]?.syncs : activityPoints[activityPoints.length - 1]?.syncs} ops
-                      </span>
-                    </div>
-                  </div>
-                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100/70 px-2 py-0.5 rounded-md">
-                    +98.2% Retention
+            {/* 1. STUDIO ADMIN 4-COLUMN KPI SUMMARY ROW */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              {/* KPI 1: Total Schedules Scanned */}
+              <div className="p-5 rounded-xl bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800 shadow-2xs flex flex-col justify-between space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    Total Schedules Scanned
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-700">
+                    <TrendingUp className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                    +12.4%
                   </span>
                 </div>
-
-                {/* SVG Animated Spline Area */}
-                <div className="relative h-44 w-full flex items-center justify-center pt-2">
-                  <svg className="w-full h-full overflow-visible" viewBox="0 0 600 130">
-                    <defs>
-                      <linearGradient id="activityGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#4F46E5" stopOpacity="0.35" />
-                        <stop offset="60%" stopColor="#6366F1" stopOpacity="0.12" />
-                        <stop offset="100%" stopColor="#6366F1" stopOpacity="0.0" />
-                      </linearGradient>
-                      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#4F46E5" floodOpacity="0.3" />
-                      </filter>
-                    </defs>
-
-                    {/* Subtle Horizontal Grid lines */}
-                    <line x1="0" y1="20" x2="600" y2="20" stroke="#282A3D" strokeDasharray="4 4" strokeWidth="1" />
-                    <line x1="0" y1="65" x2="600" y2="65" stroke="#282A3D" strokeDasharray="4 4" strokeWidth="1" />
-                    <line x1="0" y1="110" x2="600" y2="110" stroke="#282A3D" strokeDasharray="4 4" strokeWidth="1" />
-
-                    {/* Area Gradient Fill */}
-                    <path
-                      d={splineAreaPath}
-                      fill="url(#activityGradient)"
-                      className="transition-all duration-700 ease-out"
-                    />
-
-                    {/* Smooth Spline Stroke Line with Draw Animation */}
-                    <path
-                      d={splineLinePath}
-                      fill="none"
-                      stroke="#4F46E5"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      filter="url(#glow)"
-                      className="animate-draw-line transition-all duration-700 ease-out"
-                    />
-
-                    {/* Interactive Data Points & Hover Targets */}
-                    {activityPoints.map((pt, idx) => {
-                      const isHovered = hoveredPoint === idx;
-                      const isLive = idx === activityPoints.length - 1;
-                      return (
-                        <g 
-                          key={idx} 
-                          className="cursor-pointer group"
-                          onMouseEnter={() => setHoveredPoint(idx)}
-                          onMouseLeave={() => setHoveredPoint(null)}
-                        >
-                          {/* Pulsating Ping Beacon for Live Current Point */}
-                          {isLive && (
-                            <circle
-                              cx={pt.x}
-                              cy={pt.y}
-                              r="10"
-                              fill="#6366F1"
-                              opacity="0.35"
-                              className="animate-ping"
-                            />
-                          )}
-
-                          {/* Outer Glow Ring on Hover */}
-                          <circle
-                            cx={pt.x}
-                            cy={pt.y}
-                            r={isHovered ? "8" : isLive ? "6" : "5"}
-                            fill="#FFFFFF"
-                            stroke="#4F46E5"
-                            strokeWidth={isHovered ? "3.5" : "2.5"}
-                            className="transition-all duration-200 shadow-sm"
-                          />
-
-                          {/* Inner Core */}
-                          <circle
-                            cx={pt.x}
-                            cy={pt.y}
-                            r={isHovered ? "3.5" : "2.5"}
-                            fill={isLive ? "#10B981" : "#4F46E5"}
-                            className="transition-all duration-200"
-                          />
-
-                          {/* Invisible Large Hover Hitbox */}
-                          <circle
-                            cx={pt.x}
-                            cy={pt.y}
-                            r="22"
-                            fill="transparent"
-                          />
-                        </g>
-                      );
-                    })}
-                  </svg>
-                </div>
-
-                {/* Bottom X-Axis Dynamic Labels */}
-                <div className="flex items-center justify-between px-2 pt-2 border-t border-slate-100 dark:border-[#282A3D] mt-2">
-                  {activityPoints.map((pt, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setHoveredPoint(idx)}
-                      className={`text-[10px] font-bold transition-all duration-200 ${
-                        hoveredPoint === idx
-                          ? "text-indigo-600 font-black scale-110"
-                          : idx === activityPoints.length - 1
-                          ? "text-emerald-600 font-extrabold"
-                          : "text-slate-400 hover:text-slate-800 dark:text-slate-200"
-                      }`}
-                    >
-                      {pt.label}
-                    </button>
-                  ))}
+                <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight tabular-nums">
+                  {animatedScans.toLocaleString()}
+                </p>
+                <div className="space-y-0.5 pt-1 border-t border-zinc-100 dark:border-zinc-800/70">
+                  <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-200 flex items-center gap-1">
+                    <span>Trending up this semester</span>
+                    <TrendingUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  </p>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {totalExtractedClasses} verified classes synced across devices
+                  </p>
                 </div>
               </div>
 
-              {/* Right: Live Feedbacks Table (Col 8-12) */}
-              <div 
-                style={{ animationDelay: "1000ms" }}
-                className="animate-fade-scale lg:col-span-5 p-6 rounded-3xl bg-white dark:bg-[#1C1D2B] border border-slate-200/70 dark:border-[#282A3D]/80 shadow-xs flex flex-col justify-between hover:shadow-lg transition-all duration-300"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">Recent Customer Feedbacks</h3>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-300">Live submissions from mobile app</p>
+              {/* KPI 2: Registered Accounts */}
+              <div className="p-5 rounded-xl bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800 shadow-2xs flex flex-col justify-between space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    Registered Users
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-700">
+                    <TrendingUp className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                    +18.2%
+                  </span>
+                </div>
+                <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight tabular-nums">
+                  {animatedUsers}
+                </p>
+                <div className="space-y-0.5 pt-1 border-t border-zinc-100 dark:border-zinc-800/70">
+                  <Link
+                    href="/users"
+                    className="text-xs font-semibold text-zinc-900 dark:text-zinc-200 hover:underline flex items-center gap-1"
+                  >
+                    <span>Manage user directory</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </Link>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {windowsUsersCount} Windows Desktop &middot; {androidUsersCount} Android Mobile
+                  </p>
+                </div>
+              </div>
+
+              {/* KPI 3: AI Dataset Telemetry */}
+              <div className="p-5 rounded-xl bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800 shadow-2xs flex flex-col justify-between space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    AI Dataset Telemetry
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-700">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                    {verifiedAccuracy}
+                  </span>
+                </div>
+                <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight tabular-nums">
+                  {animatedAiSamples}
+                </p>
+                <div className="space-y-0.5 pt-1 border-t border-zinc-100 dark:border-zinc-800/70">
+                  <Link
+                    href="/dataset"
+                    className="text-xs font-semibold text-zinc-900 dark:text-zinc-200 hover:underline flex items-center gap-1"
+                  >
+                    <span>Open MMA Dataset Lab</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </Link>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    Ground-truth OCR timetable scans
+                  </p>
+                </div>
+              </div>
+
+              {/* KPI 4: Customer Rating */}
+              <div className="p-5 rounded-xl bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800 shadow-2xs flex flex-col justify-between space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    Customer Satisfaction
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-700">
+                    <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                    {positiveFeedbackPercent}% Positive
+                  </span>
+                </div>
+                <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 tracking-tight tabular-nums flex items-baseline gap-1.5">
+                  <span>{averageRating}</span>
+                  <span className="text-sm font-medium text-zinc-400">/ 5.0</span>
+                </p>
+                <div className="space-y-0.5 pt-1 border-t border-zinc-100 dark:border-zinc-800/70">
+                  <Link
+                    href="/feedbacks"
+                    className="text-xs font-semibold text-zinc-900 dark:text-zinc-200 hover:underline flex items-center gap-1"
+                  >
+                    <span>Review {totalFeedbacks} user feedbacks</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </Link>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    Direct in-app ratings &amp; bug reports
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. STUDIO ADMIN MAIN INTERACTIVE CHART CARD */}
+            <div className="rounded-xl bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800 shadow-2xs overflow-hidden">
+              {/* Top Interactive Metric Header Bar (Shadcn Studio Admin Pattern) */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-zinc-200/80 dark:border-zinc-800">
+                <div className="p-5 lg:px-6 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
+                      Schedule Ingestion &amp; Activity Dynamics
+                    </h3>
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Live Telemetry
+                    </span>
                   </div>
-                  <Link href="/feedbacks" className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 hover:translate-x-0.5 transition-transform">
-                    <span>View all ({totalFeedbacks})</span>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Monthly timetable scans and weekly active device retention for {selectedYear}
+                  </p>
+                </div>
+
+                {/* Clickable Metric Summary Tabs (Shadcn Analytics Header Tabs) */}
+                <div className="flex border-t lg:border-t-0 border-zinc-200/80 dark:border-zinc-800 divide-x divide-zinc-200/80 dark:divide-zinc-800">
+                  <button
+                    type="button"
+                    onClick={() => setActiveChartTab("ingestion")}
+                    className={`flex-1 lg:w-48 px-6 py-4 text-left transition-colors cursor-pointer ${
+                      activeChartTab === "ingestion"
+                        ? "bg-zinc-50 dark:bg-zinc-900/90"
+                        : "hover:bg-zinc-50/50 dark:hover:bg-zinc-900/40"
+                    }`}
+                  >
+                    <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 block">
+                      Monthly Ingestion
+                    </span>
+                    <span className="text-xl font-bold text-zinc-900 dark:text-zinc-100 tabular-nums mt-0.5 block">
+                      {totalSchedulesScanned.toLocaleString()}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveChartTab("retention")}
+                    className={`flex-1 lg:w-48 px-6 py-4 text-left transition-colors cursor-pointer ${
+                      activeChartTab === "retention"
+                        ? "bg-zinc-50 dark:bg-zinc-900/90"
+                        : "hover:bg-zinc-50/50 dark:hover:bg-zinc-900/40"
+                    }`}
+                  >
+                    <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 block">
+                      Weekly Retention
+                    </span>
+                    <span className="text-xl font-bold text-zinc-900 dark:text-zinc-100 tabular-nums mt-0.5 block">
+                      98.2%
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Chart Body */}
+              <div className="p-6">
+                {activeChartTab === "ingestion" ? (
+                  <div>
+                    <div className="flex items-end justify-between h-56 px-2 pt-6 gap-2 sm:gap-4">
+                      {monthlyData.map((col, idx) => (
+                        <div key={idx} className="flex flex-col items-center gap-2.5 group flex-1 relative">
+                          {/* Hover Tooltip */}
+                          <div className="absolute -top-11 opacity-0 group-hover:opacity-100 transition-all duration-150 pointer-events-none z-20 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 text-[10px] font-semibold px-2.5 py-1.5 rounded-lg shadow-lg whitespace-nowrap flex flex-col items-center">
+                            <p>
+                              {col.value} event{col.value !== 1 ? "s" : ""}
+                            </p>
+                            {col.classCount > 0 && (
+                              <p className="text-[9px] opacity-75">{col.classCount} classes</p>
+                            )}
+                          </div>
+
+                          <div className="w-full max-w-[38px] bg-zinc-100 dark:bg-zinc-900 rounded-md h-44 flex items-end overflow-hidden p-0.5 relative group-hover:bg-zinc-200/70 dark:group-hover:bg-zinc-800/80 transition-colors cursor-pointer">
+                            <div
+                              className={`w-full rounded-sm transition-all duration-500 ease-out ${
+                                col.isActive
+                                  ? "bg-zinc-900 dark:bg-zinc-100"
+                                  : col.value > 0
+                                  ? "bg-zinc-700 dark:bg-zinc-300 group-hover:bg-zinc-900 dark:group-hover:bg-white"
+                                  : "bg-zinc-300/60 dark:bg-zinc-800"
+                              }`}
+                              style={{
+                                height: col.height,
+                                transitionDelay: `${idx * 20}ms`,
+                              }}
+                            />
+                          </div>
+                          <span
+                            className={`text-[10px] font-mono font-semibold tracking-wider ${
+                              col.isActive
+                                ? "text-zinc-900 dark:text-zinc-100 font-bold"
+                                : "text-zinc-400 group-hover:text-zinc-700 dark:group-hover:text-zinc-200"
+                            }`}
+                          >
+                            {col.month}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2 py-2 px-3.5 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200/70 dark:border-zinc-800 text-xs">
+                      <div className="flex items-center gap-4">
+                        <span>
+                          <span className="text-zinc-400">Window: </span>
+                          <strong className="text-zinc-900 dark:text-zinc-100">
+                            {hoveredPoint !== null
+                              ? activityPoints[hoveredPoint]?.label
+                              : activityPoints[activityPoints.length - 1]?.label}
+                          </strong>
+                        </span>
+                        <span>
+                          <span className="text-zinc-400">Active Users: </span>
+                          <strong className="text-zinc-900 dark:text-zinc-100">
+                            {hoveredPoint !== null
+                              ? activityPoints[hoveredPoint]?.users
+                              : activityPoints[activityPoints.length - 1]?.users}
+                          </strong>
+                        </span>
+                        <span>
+                          <span className="text-zinc-400">Cloud Syncs: </span>
+                          <strong className="text-zinc-900 dark:text-zinc-100">
+                            {hoveredPoint !== null
+                              ? activityPoints[hoveredPoint]?.syncs
+                              : activityPoints[activityPoints.length - 1]?.syncs}{" "}
+                            ops
+                          </strong>
+                        </span>
+                      </div>
+
+                      <CustomDropdown
+                        value={selectedMonth}
+                        onChange={setSelectedMonth}
+                        compact
+                        buttonClassName="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-200 font-semibold"
+                        options={["August 2026", "September 2026", "October 2026", "November 2026"]}
+                      />
+                    </div>
+
+                    <div className="relative h-48 w-full flex items-center justify-center pt-2">
+                      <svg className="w-full h-full overflow-visible" viewBox="0 0 600 130">
+                        <defs>
+                          <linearGradient id="studioAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#18181B" stopOpacity="0.22" />
+                            <stop offset="100%" stopColor="#18181B" stopOpacity="0.0" />
+                          </linearGradient>
+                        </defs>
+                        <line x1="0" y1="20" x2="600" y2="20" stroke="#E4E4E7" strokeDasharray="4 4" strokeWidth="1" />
+                        <line x1="0" y1="65" x2="600" y2="65" stroke="#E4E4E7" strokeDasharray="4 4" strokeWidth="1" />
+                        <line x1="0" y1="110" x2="600" y2="110" stroke="#E4E4E7" strokeDasharray="4 4" strokeWidth="1" />
+                        <path d={splineAreaPath} fill="url(#studioAreaGrad)" />
+                        <path
+                          d={splineLinePath}
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-zinc-900 dark:text-zinc-100 animate-draw-line"
+                        />
+                        {activityPoints.map((pt, idx) => {
+                          const isHovered = hoveredPoint === idx;
+                          return (
+                            <g
+                              key={idx}
+                              className="cursor-pointer"
+                              onMouseEnter={() => setHoveredPoint(idx)}
+                              onMouseLeave={() => setHoveredPoint(null)}
+                            >
+                              <circle
+                                cx={pt.x}
+                                cy={pt.y}
+                                r={isHovered ? "6" : "4"}
+                                className="fill-white dark:fill-zinc-950 stroke-zinc-900 dark:stroke-zinc-100"
+                                strokeWidth="2.5"
+                              />
+                              <circle cx={pt.x} cy={pt.y} r="20" fill="transparent" />
+                            </g>
+                          );
+                        })}
+                      </svg>
+                    </div>
+
+                    <div className="flex items-center justify-between px-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                      {activityPoints.map((pt, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setHoveredPoint(idx)}
+                          className={`text-[11px] font-mono font-medium cursor-pointer ${
+                            hoveredPoint === idx
+                              ? "text-zinc-900 dark:text-zinc-100 font-bold"
+                              : "text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                          }`}
+                        >
+                          {pt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 3. STUDIO ADMIN 3-COLUMN ANALYTICS BREAKDOWN GRID */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              {/* Col 1-4: Institution & Sector Distribution */}
+              <div className="lg:col-span-4 p-5 rounded-xl bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800 shadow-2xs flex flex-col justify-between space-y-5">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                      Institution Directory Coverage
+                    </h3>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                      {sectorBreakdown.totalInst} verified organizations synced
+                    </p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300">
+                    <School className="w-4 h-4" />
+                  </div>
+                </div>
+
+                <div className="space-y-3.5">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                        Colleges &amp; Universities
+                      </span>
+                      <span className="font-mono font-semibold text-zinc-900 dark:text-zinc-100">
+                        {sectorBreakdown.colleges} ({sectorBreakdown.student}%)
+                      </span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                      <div
+                        className="h-full bg-zinc-900 dark:bg-zinc-100 rounded-full"
+                        style={{ width: `${sectorBreakdown.student}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                        Workplace &amp; Corporate
+                      </span>
+                      <span className="font-mono font-semibold text-zinc-900 dark:text-zinc-100">
+                        {sectorBreakdown.corporate} ({sectorBreakdown.work}%)
+                      </span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                      <div
+                        className="h-full bg-zinc-600 dark:bg-zinc-400 rounded-full"
+                        style={{ width: `${sectorBreakdown.work}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                        Healthcare &amp; Duty Rosters
+                      </span>
+                      <span className="font-mono font-semibold text-zinc-900 dark:text-zinc-100">
+                        {sectorBreakdown.hospitals} ({sectorBreakdown.health}%)
+                      </span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                      <div
+                        className="h-full bg-zinc-400 dark:bg-zinc-600 rounded-full"
+                        style={{ width: `${sectorBreakdown.health}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-xs">
+                  <span className="text-zinc-500 dark:text-zinc-400">139 verified school logos</span>
+                  <Link
+                    href="/institutions"
+                    className="font-semibold text-zinc-900 dark:text-zinc-100 hover:underline flex items-center gap-1"
+                  >
+                    <span>Manage schools</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </div>
+
+              {/* Col 5-8: Scan Engine & Infrastructure Health */}
+              <div className="lg:col-span-4 p-5 rounded-xl bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800 shadow-2xs flex flex-col justify-between space-y-5">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                      OCR Engine &amp; Infrastructure
+                    </h3>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                      Hybrid on-device ML Kit &amp; Cloud proxy health
+                    </p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300">
+                    <Cpu className="w-4 h-4" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800">
+                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">
+                      On-Device ML
+                    </span>
+                    <span className="text-lg font-bold text-zinc-900 dark:text-zinc-100 tabular-nums mt-0.5 block">
+                      {engineBreakdown.offline}%
+                    </span>
+                    <span className="text-[10px] text-zinc-400">0.34s avg latency</span>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-900/70 border border-zinc-200/60 dark:border-zinc-800">
+                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">
+                      Cloud Sync SLA
+                    </span>
+                    <span className="text-lg font-bold text-zinc-900 dark:text-zinc-100 tabular-nums mt-0.5 block">
+                      99.99%
+                    </span>
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                      Singapore (default)
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between py-1.5 border-b border-zinc-100 dark:border-zinc-800/70">
+                    <span className="text-zinc-500 dark:text-zinc-400">Active Production Release</span>
+                    <span className="font-mono font-semibold text-zinc-900 dark:text-zinc-100">
+                      v1.0.0+17
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-zinc-500 dark:text-zinc-400">MongoDB Atlas Warehouse</span>
+                    <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      Synced
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-xs">
+                  <span className="text-zinc-500 dark:text-zinc-400">Remote feature flags</span>
+                  <Link
+                    href="/config"
+                    className="font-semibold text-zinc-900 dark:text-zinc-100 hover:underline flex items-center gap-1"
+                  >
+                    <span>Configure flags</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </div>
+
+              {/* Col 9-12: Recent Customer Feedbacks */}
+              <div className="lg:col-span-4 p-5 rounded-xl bg-white dark:bg-[#121215] border border-zinc-200/80 dark:border-zinc-800 shadow-2xs flex flex-col justify-between space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                      Recent User Reviews
+                    </h3>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                      Latest feedback from mobile &amp; desktop
+                    </p>
+                  </div>
+                  <Link
+                    href="/feedbacks"
+                    className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 hover:underline flex items-center gap-1"
+                  >
+                    <span>All ({totalFeedbacks})</span>
                     <ArrowUpRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
 
                 {feedbacks.length === 0 ? (
-                  <div className="py-12 text-center text-slate-400 text-xs">
+                  <div className="py-10 text-center text-zinc-400 text-xs">
                     No customer feedbacks submitted yet.
                   </div>
                 ) : (
-                  <div className="divide-y divide-slate-100 dark:divide-[#282A3D]">
-                    {feedbacks.slice(0, 4).map((f) => {
+                  <div className="divide-y divide-zinc-100 dark:divide-zinc-800/80 flex-1">
+                    {feedbacks.slice(0, 3).map((f) => {
                       const avatarUrl = getUserAvatar(f);
                       return (
-                        <div key={f.id} className="py-3 flex items-center justify-between gap-3 hover:bg-slate-50/60 dark:hover:bg-slate-800/50 rounded-xl px-2 -mx-2 transition-colors">
-                          <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          key={f.id}
+                          className="py-2.5 flex items-start justify-between gap-3"
+                        >
+                          <div className="flex items-start gap-2.5 min-w-0">
                             {avatarUrl ? (
                               <img
                                 src={avatarUrl}
                                 alt={f.userName || "User"}
-                                className="w-8 h-8 rounded-full object-cover shrink-0 ring-1 ring-slate-200 dark:ring-slate-700 shadow-xs"
+                                className="w-7 h-7 rounded-full object-cover shrink-0 border border-zinc-200 dark:border-zinc-700 mt-0.5"
                                 onError={(e) => {
                                   (e.currentTarget as HTMLElement).style.display = "none";
                                 }}
                               />
                             ) : (
-                              <div className="w-8 h-8 rounded-full bg-linear-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                              <div className="w-7 h-7 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 flex items-center justify-center font-bold text-[11px] shrink-0 mt-0.5">
                                 {(getFriendlyFeedbackName(f) || "U")[0].toUpperCase()}
                               </div>
                             )}
                             <div className="min-w-0">
-                              <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{getFriendlyFeedbackName(f)}</p>
-                              <p className="text-[10px] text-slate-500 dark:text-slate-300 truncate">{f.category || "General"}</p>
+                              <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                                {getFriendlyFeedbackName(f)}
+                              </p>
+                              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-1 mt-0.5">
+                                &ldquo;{f.message || "Helpful schedule app"}&rdquo;
+                              </p>
                             </div>
                           </div>
 
-                        <div className="text-right shrink-0">
-                          <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold transition-transform hover:scale-105 ${
-                            f.status === "resolved" 
-                              ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400"
-                              : f.status === "in-progress"
-                              ? "bg-blue-50 text-blue-600"
-                              : "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400"
-                          }`}>
-                            {(f.status || "pending").toUpperCase()}
-                          </span>
-                          <p className="text-[10px] text-yellow-500 font-bold mt-0.5">{"★".repeat(f.rating || 5)}</p>
+                          <div className="text-right shrink-0">
+                            <span className="text-[11px] text-amber-500 font-bold block">
+                              {"★".repeat(f.rating || 5)}
+                            </span>
+                            <span className="text-[10px] text-zinc-400 font-mono uppercase">
+                              {f.status || "pending"}
+                            </span>
+                          </div>
                         </div>
-                      </div>
                       );
                     })}
                   </div>
                 )}
+
+                <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-xs">
+                  <span className="text-zinc-500 dark:text-zinc-400">
+                    {positiveFeedbackPercent}% satisfaction score
+                  </span>
+                  <Link
+                    href="/feedbacks"
+                    className="font-semibold text-zinc-900 dark:text-zinc-100 hover:underline flex items-center gap-1"
+                  >
+                    <span>Open inbox</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
               </div>
             </div>
+
+            {/* 4. LIVE SYSTEM ACTIVITY PULSE STREAM */}
+            <LivePulseTicker
+              users={users}
+              feedbacks={feedbacks}
+              aiSamples={aiSamples}
+              announcements={announcements}
+              userPhotos={userPhotos}
+            />
           </>
         )}
       </main>

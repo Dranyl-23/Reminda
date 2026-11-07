@@ -46,6 +46,8 @@ migrate_working_dir/
 admin_portal/node_modules/
 admin_portal/.next/
 admin_portal/.env.local
+admin_portal/scripts/*.local.js
+admin_portal/scripts/*.local.json
 
 # Reminda Landing Marketing Site
 reminda_landing/node_modules/

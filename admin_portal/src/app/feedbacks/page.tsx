@@ -21,9 +21,9 @@ function formatFeedbackDate(timestamp: any, createdAtIso?: string): string {
   return "Just now";
 }
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { collection, onSnapshot, query, orderBy, doc, deleteDoc, updateDoc, writeBatch } from "firebase/firestore";
+import { collection, onSnapshot, doc, deleteDoc, updateDoc, writeBatch } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { UserFeedback, UserAccount } from "@/lib/types";
 import { Header } from "@/components/Header";
@@ -48,7 +48,8 @@ import {
   Download,
   CheckCheck,
   Clock,
-  Layers
+  RefreshCw,
+  Database
 } from "lucide-react";
 
 export default function FeedbacksPage() {
@@ -73,16 +74,11 @@ export default function FeedbacksPage() {
   const itemsPerPage = 9;
   const [userPhotos, setUserPhotos] = useState<Record<string, string>>({});
 
-  // BUG FIX (Critical #8): Track whether pending feedbacks need a MongoDB sync.
-  // Previously, fetch("/api/mongodb/sync") was called inside the onSnapshot
-  // callback, meaning the ENTIRE collection was re-uploaded to MongoDB on
-  // EVERY Firestore change (every status update, every new feedback, etc.).
-  // This caused extreme bandwidth usage and potential rate-limiting.
-  // Now syncing is done only on explicit user action via a Sync button.
   const [pendingSync, setPendingSync] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const hasInitialSyncedRef = useRef(false);
 
-  const syncToMongoDB = async (data: UserFeedback[]) => {
+  const syncToMongoDB = async (data: UserFeedback[], showFeedbackToast = false) => {
     if (data.length === 0 || isSyncing) return;
     setIsSyncing(true);
     try {
@@ -96,6 +92,9 @@ export default function FeedbacksPage() {
         body: JSON.stringify({ collectionName: "customer_feedbacks", documents: data })
       });
       setPendingSync(false);
+      if (showFeedbackToast) {
+        showToast(`Synced ${data.length} feedback records to MongoDB Warehouse.`);
+      }
     } catch {
       // Sync failure is non-critical; user can retry via button
     } finally {
@@ -121,10 +120,10 @@ export default function FeedbacksPage() {
     const colRef = collection(db, "user_feedback");
     const unsub = onSnapshot(colRef, (snap) => {
       const list: UserFeedback[] = [];
-      snap.forEach((doc) => {
-        const data = doc.data();
+      snap.forEach((docSnap) => {
+        const data = docSnap.data();
         list.push({ 
-          id: doc.id, 
+          id: docSnap.id, 
           status: data.status || "pending",
           ...data 
         } as UserFeedback);
@@ -132,15 +131,28 @@ export default function FeedbacksPage() {
 
       // Sort newest first by timestamp or createdAtIso
       list.sort((a, b) => {
-        const tA = (a.timestamp as any)?.toMillis ? (a.timestamp as any).toMillis() : (a.createdAtIso ? new Date(a.createdAtIso).getTime() : 0);
-        const tB = (b.timestamp as any)?.toMillis ? (b.timestamp as any).toMillis() : (b.createdAtIso ? new Date(b.createdAtIso).getTime() : 0);
+        const tA = (a.timestamp as any)?.toMillis
+          ? (a.timestamp as any).toMillis()
+          : ((a.timestamp as any)?.seconds
+              ? (a.timestamp as any).seconds * 1000
+              : (a.createdAtIso ? new Date(a.createdAtIso).getTime() : 0));
+        const tB = (b.timestamp as any)?.toMillis
+          ? (b.timestamp as any).toMillis()
+          : ((b.timestamp as any)?.seconds
+              ? (b.timestamp as any).seconds * 1000
+              : (b.createdAtIso ? new Date(b.createdAtIso).getTime() : 0));
         return tB - tA;
       });
 
       setFeedbacks(list);
       setIsLoading(false);
-      // Mark that a sync is available — user can trigger it via the Sync button
-      if (list.length > 0) setPendingSync(true);
+
+      if (list.length > 0 && !hasInitialSyncedRef.current) {
+        hasInitialSyncedRef.current = true;
+        syncToMongoDB(list);
+      } else if (list.length > 0) {
+        setPendingSync(true);
+      }
     }, (err: any) => {
       console.warn("Feedback snapshot notice:", err.message);
       setIsLoading(false);
@@ -156,10 +168,13 @@ export default function FeedbacksPage() {
 
   const handleUpdateStatus = async (id: string, newStatus: "pending" | "in-progress" | "resolved") => {
     try {
+      const updatedAt = new Date().toISOString();
       await updateDoc(doc(db, "user_feedback", id), {
         status: newStatus,
-        updatedAt: new Date().toISOString()
+        updatedAt
       });
+      const updatedList = feedbacks.map((f) => (f.id === id ? { ...f, status: newStatus } : f));
+      syncToMongoDB(updatedList);
       showToast(`Status updated to "${newStatus.toUpperCase()}"!`);
     } catch (err: any) {
       showToast("Error updating status: " + err.message);
@@ -215,10 +230,13 @@ export default function FeedbacksPage() {
     if (selectedIds.size === 0) return;
     try {
       const batch = writeBatch(db);
+      const updatedAt = new Date().toISOString();
       selectedIds.forEach((id) => {
-        batch.update(doc(db, "user_feedback", id), { status: newStatus });
+        batch.update(doc(db, "user_feedback", id), { status: newStatus, updatedAt });
       });
       await batch.commit();
+      const updatedList = feedbacks.map((f) => (selectedIds.has(f.id) ? { ...f, status: newStatus } : f));
+      syncToMongoDB(updatedList);
       showToast(`Updated ${selectedIds.size} feedbacks to "${newStatus.toUpperCase()}".`);
       setSelectedIds(new Set());
     } catch (err: any) {
@@ -281,8 +299,12 @@ export default function FeedbacksPage() {
     const matchesQuery = 
       (f.userName || "").toLowerCase().includes(q) ||
       (f.contactEmail || "").toLowerCase().includes(q) ||
-      (f.comment || "").toLowerCase().includes(q);
-    const matchesCategory = selectedCategory === "All" || f.category === selectedCategory;
+      (f.comment || f.message || "").toLowerCase().includes(q);
+    const matchesCategory =
+      selectedCategory === "All" ||
+      f.category === selectedCategory ||
+      (selectedCategory === "General" && (f.category === "General" || f.category === "General Feedback")) ||
+      (selectedCategory === "Schedule Parsing" && (f.category === "Schedule Parsing" || f.category === "Scanner / OCR Issue"));
     const matchesStatus = selectedStatus === "all" || (f.status || "pending") === selectedStatus;
     return matchesQuery && matchesCategory && matchesStatus;
   });
@@ -436,16 +458,35 @@ export default function FeedbacksPage() {
             </button>
           </div>
 
-          {/* Search Bar */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search by customer name, email, or message..."
-              value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-              className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white dark:bg-[#1C1D2B] border border-slate-200 dark:border-[#282A3D] text-xs font-semibold text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-blue-600 shadow-xs"
-            />
+          {/* Search & Warehouse Sync Bar */}
+          <div className="flex items-center gap-2.5 flex-1 max-w-xl justify-end">
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search by customer name, email, or message..."
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white dark:bg-[#1C1D2B] border border-slate-200 dark:border-[#282A3D] text-xs font-semibold text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-blue-600 shadow-xs"
+              />
+            </div>
+            <button
+              onClick={() => syncToMongoDB(feedbacks, true)}
+              disabled={isSyncing || feedbacks.length === 0}
+              className={`px-3.5 py-2.5 rounded-2xl border text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 shadow-xs ${
+                pendingSync
+                  ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white"
+                  : "bg-white dark:bg-[#1C1D2B] text-slate-700 dark:text-slate-200 border-slate-200 dark:border-[#282A3D] hover:bg-slate-50"
+              } disabled:opacity-50`}
+              title="Mirror feedback records to MongoDB Atlas Warehouse"
+            >
+              {isSyncing ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Database className="w-3.5 h-3.5" />
+              )}
+              <span>{isSyncing ? "Syncing..." : "Sync Warehouse"}</span>
+            </button>
           </div>
         </div>
 
@@ -568,10 +609,15 @@ export default function FeedbacksPage() {
                       </div>
 
                       {/* Feedback Category Badge & Timestamp */}
-                      <div className="flex items-center gap-2 mb-3">
+                      <div className="flex flex-wrap items-center gap-2 mb-3">
                         <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-[#25273A] text-slate-700 dark:text-slate-300">
                           {f.category || "General Feedback"}
                         </span>
+                        {f.platform && (
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-50 dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 border border-slate-200/70 dark:border-zinc-800">
+                            {f.platform.toLowerCase().includes("windows") ? "Windows" : "Android"}
+                          </span>
+                        )}
                         <span className="text-[10px] text-slate-400 font-medium">
                           {formatFeedbackDate(f.timestamp, f.createdAtIso)}
                         </span>
