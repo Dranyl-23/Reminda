@@ -533,7 +533,7 @@ export default function InstitutionsPage() {
             regionCode: item.regionCode,
             city: item.city,
             themeColor: item.themeColor,
-            logoUrl: item.logoUrl || "",
+            ...(item.logoUrl && item.logoUrl.trim().length > 0 ? { logoUrl: item.logoUrl.trim() } : {}),
             emblemInitials: item.emblemInitials || item.shortName.slice(0, 4).toUpperCase(),
             isOfficial: true,
             createdAt: serverTimestamp()

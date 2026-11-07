@@ -7,7 +7,7 @@
     "regionCode": "R11",
     "city": "Davao City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/um.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/um.png",
     "emblemInitials": "UM M",
     "isOfficial": true
   },
@@ -19,7 +19,7 @@
     "regionCode": "R11",
     "city": "Davao City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/um.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/um.png",
     "emblemInitials": "UM B",
     "isOfficial": true
   },
@@ -31,7 +31,7 @@
     "regionCode": "R11",
     "city": "Davao City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/um.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/um.png",
     "emblemInitials": "UM G",
     "isOfficial": true
   },
@@ -43,7 +43,7 @@
     "regionCode": "R11",
     "city": "Davao City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/um.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/um.png",
     "emblemInitials": "UM I",
     "isOfficial": true
   },
@@ -55,7 +55,7 @@
     "regionCode": "R11",
     "city": "Digos City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/um.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/um.png",
     "emblemInitials": "UM D",
     "isOfficial": true
   },
@@ -67,7 +67,7 @@
     "regionCode": "R11",
     "city": "Bansalan",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/um.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/um.png",
     "emblemInitials": "UM B",
     "isOfficial": true
   },
@@ -79,7 +79,7 @@
     "regionCode": "R11",
     "city": "Tagum City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/um.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/um.png",
     "emblemInitials": "UM T",
     "isOfficial": true
   },
@@ -91,7 +91,7 @@
     "regionCode": "R11",
     "city": "Panabo City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/um.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/um.png",
     "emblemInitials": "UM P",
     "isOfficial": true
   },
@@ -103,7 +103,7 @@
     "regionCode": "R11",
     "city": "Samal City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/um.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/um.png",
     "emblemInitials": "UM S",
     "isOfficial": true
   },
@@ -115,7 +115,7 @@
     "regionCode": "R12",
     "city": "Cotabato City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/um.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/um.png",
     "emblemInitials": "UM C",
     "isOfficial": true
   },
@@ -127,7 +127,7 @@
     "regionCode": "R11",
     "city": "Digos City",
     "themeColor": "#2563EB",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/cjc.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/cjc.png",
     "emblemInitials": "COR ",
     "isOfficial": true
   },
@@ -151,7 +151,7 @@
     "regionCode": "R11",
     "city": "Padada",
     "themeColor": "#15803D",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/SC-Padada.png",
     "emblemInitials": "SC P",
     "isOfficial": true
   },
@@ -175,7 +175,7 @@
     "regionCode": "R11",
     "city": "Matanao",
     "themeColor": "#1D4ED8",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/spac.png",
     "emblemInitials": "SPAC",
     "isOfficial": true
   },
@@ -187,7 +187,7 @@
     "regionCode": "R11",
     "city": "Digos City",
     "themeColor": "#059669",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/dssc.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/dssc.png",
     "emblemInitials": "DSSC",
     "isOfficial": true
   },
@@ -199,7 +199,7 @@
     "regionCode": "R11",
     "city": "Bansalan",
     "themeColor": "#059669",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/dssc.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/dssc.png",
     "emblemInitials": "DSSC",
     "isOfficial": true
   },
@@ -211,7 +211,7 @@
     "regionCode": "R11",
     "city": "Sulop",
     "themeColor": "#059669",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/dssc.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/dssc.png",
     "emblemInitials": "DSSC",
     "isOfficial": true
   },
@@ -223,7 +223,7 @@
     "regionCode": "R11",
     "city": "Santa Cruz",
     "themeColor": "#059669",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/dssc.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/dssc.png",
     "emblemInitials": "DSSC",
     "isOfficial": true
   },
@@ -259,7 +259,7 @@
     "regionCode": "R11",
     "city": "Digos City",
     "themeColor": "#DC2626",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/Gmalldigos.webp",
     "emblemInitials": "GMAL",
     "isOfficial": true
   },
@@ -271,7 +271,7 @@
     "regionCode": "R11",
     "city": "Digos City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/jollibee.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/jollibee.png",
     "emblemInitials": "JOLL",
     "isOfficial": true
   },
@@ -283,7 +283,7 @@
     "regionCode": "R11",
     "city": "Digos City",
     "themeColor": "#EAB308",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/mcdo.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/mcdo.png",
     "emblemInitials": "MCDO",
     "isOfficial": true
   },
@@ -343,7 +343,7 @@
     "regionCode": "R11",
     "city": "Davao City",
     "themeColor": "#1D4ED8",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/addu.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/addu.png",
     "emblemInitials": "ATEN",
     "isOfficial": true
   },
@@ -355,7 +355,7 @@
     "regionCode": "R11",
     "city": "Davao City",
     "themeColor": "#7C3AED",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/up.png",
     "emblemInitials": "UP M",
     "isOfficial": true
   },
@@ -367,7 +367,7 @@
     "regionCode": "R11",
     "city": "Davao City",
     "themeColor": "#B91C1C",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/usep.png",
     "emblemInitials": "USEP",
     "isOfficial": true
   },
@@ -391,7 +391,7 @@
     "regionCode": "R11",
     "city": "Davao City",
     "themeColor": "#0284C7",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/hcdc.jpg",
     "emblemInitials": "HOLY",
     "isOfficial": true
   },
@@ -463,7 +463,7 @@
     "regionCode": "R11",
     "city": "Davao City",
     "themeColor": "#16A34A",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/feu.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/FEU-IT.png",
     "emblemInitials": "FEU ",
     "isOfficial": true
   },
@@ -523,7 +523,7 @@
     "regionCode": "R11",
     "city": "Davao City",
     "themeColor": "#0D9488",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/Abreeza.png",
     "emblemInitials": "ABRE",
     "isOfficial": true
   },
@@ -559,7 +559,7 @@
     "regionCode": "R11",
     "city": "Davao City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/jollibee.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/jollibee.png",
     "emblemInitials": "JOLL",
     "isOfficial": true
   },
@@ -571,7 +571,7 @@
     "regionCode": "R11",
     "city": "Davao City",
     "themeColor": "#EAB308",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/mcdo.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/mcdo.png",
     "emblemInitials": "MCDO",
     "isOfficial": true
   },
@@ -583,7 +583,7 @@
     "regionCode": "R11",
     "city": "Davao City",
     "themeColor": "#059669",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/spmc.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/spmc.png",
     "emblemInitials": "SPMC",
     "isOfficial": true
   },
@@ -619,7 +619,7 @@
     "regionCode": "R11",
     "city": "Davao City",
     "themeColor": "#2563EB",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/deped.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/deped.png",
     "emblemInitials": "DEPE",
     "isOfficial": true
   },
@@ -655,7 +655,7 @@
     "regionCode": "R11",
     "city": "Tagum City",
     "themeColor": "#B91C1C",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/um.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/usep.png",
     "emblemInitials": "USEP",
     "isOfficial": true
   },
@@ -763,7 +763,7 @@
     "regionCode": "R11",
     "city": "Panabo City",
     "themeColor": "#DC2626",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/NDC-Panabo.png",
     "emblemInitials": "NDC ",
     "isOfficial": true
   },
@@ -775,7 +775,7 @@
     "regionCode": "R11",
     "city": "Panabo City",
     "themeColor": "#1D4ED8",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/Maryknoll%20College%20of%20Panabo%2C%20Inc..jpg",
     "emblemInitials": "MARY",
     "isOfficial": true
   },
@@ -787,7 +787,7 @@
     "regionCode": "R11",
     "city": "Panabo City",
     "themeColor": "#15803D",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/DNSC-Panabo.png",
     "emblemInitials": "DNSC",
     "isOfficial": true
   },
@@ -1015,7 +1015,7 @@
     "regionCode": "R11",
     "city": "Mabini",
     "themeColor": "#B91C1C",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/usep.png",
     "emblemInitials": "USEP",
     "isOfficial": true
   },
@@ -1027,7 +1027,7 @@
     "regionCode": "R11",
     "city": "Nabunturan",
     "themeColor": "#1D4ED8",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/Assumption%20College%20of%20Nabunturan.jpg",
     "emblemInitials": "ACN ",
     "isOfficial": true
   },
@@ -1099,7 +1099,7 @@
     "regionCode": "R11",
     "city": "Davao City",
     "themeColor": "#15803D",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/Agro-Industrial%20Foundation%20College%20of%20the%20Philippines.jpg",
     "emblemInitials": "AGRO",
     "isOfficial": true
   },
@@ -1135,7 +1135,7 @@
     "regionCode": "R11",
     "city": "Davao City",
     "themeColor": "#B45309",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/um.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/Assumption%20College%20of%20Davao.jpg",
     "emblemInitials": "ASSU",
     "isOfficial": true
   },
@@ -1147,7 +1147,7 @@
     "regionCode": "R11",
     "city": "Davao City",
     "themeColor": "#DC2626",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/Asian%20International%20School%20of%20Aeronautics%20and%20Technology%20(AISAT).png",
     "emblemInitials": "AISA",
     "isOfficial": true
   },
@@ -1159,7 +1159,7 @@
     "regionCode": "R11",
     "city": "Davao City",
     "themeColor": "#7C3AED",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/AMYA%20Polytechnic%20College%2C%20Inc..jpg",
     "emblemInitials": "AMYA",
     "isOfficial": true
   },
@@ -1255,7 +1255,7 @@
     "regionCode": "R11",
     "city": "Mati City",
     "themeColor": "#059669",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/DOrSU-Logo.png",
     "emblemInitials": "DORS",
     "isOfficial": true
   },
@@ -1291,7 +1291,7 @@
     "regionCode": "CAR",
     "city": "Baguio City",
     "themeColor": "#7C3AED",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/up.png",
     "emblemInitials": "UP B",
     "isOfficial": true
   },
@@ -1411,7 +1411,7 @@
     "regionCode": "CAR",
     "city": "Bangued Abra",
     "themeColor": "#059669",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/Abra%20State%20Institute%20of%20Sciences%20and%20Technology.jpg",
     "emblemInitials": "ASIS",
     "isOfficial": true
   },
@@ -1483,7 +1483,7 @@
     "regionCode": "CAR",
     "city": "Conner Apayao",
     "themeColor": "#059669",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/Apayao%20State%20College.jpg",
     "emblemInitials": "ASC ",
     "isOfficial": true
   },
@@ -1531,7 +1531,7 @@
     "regionCode": "NCR",
     "city": "Quezon City",
     "themeColor": "#7C3AED",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/up.png",
     "emblemInitials": "UP D",
     "isOfficial": true
   },
@@ -1543,7 +1543,7 @@
     "regionCode": "NCR",
     "city": "Quezon City",
     "themeColor": "#1D4ED8",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/ADMU.avif",
     "emblemInitials": "ATEN",
     "isOfficial": true
   },
@@ -1555,7 +1555,7 @@
     "regionCode": "NCR",
     "city": "Manila",
     "themeColor": "#15803D",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/dlsu.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/dlsu.png",
     "emblemInitials": "DLSU",
     "isOfficial": true
   },
@@ -1567,7 +1567,7 @@
     "regionCode": "NCR",
     "city": "Manila",
     "themeColor": "#B45309",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/ust.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/ust.png",
     "emblemInitials": "UST",
     "isOfficial": true
   },
@@ -1579,7 +1579,7 @@
     "regionCode": "NCR",
     "city": "Manila",
     "themeColor": "#16A34A",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/feu.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/feu.png",
     "emblemInitials": "FEU ",
     "isOfficial": true
   },
@@ -1591,7 +1591,7 @@
     "regionCode": "NCR",
     "city": "Manila",
     "themeColor": "#16A34A",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/feu.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/FEU-IT.png",
     "emblemInitials": "FEU ",
     "isOfficial": true
   },
@@ -1603,7 +1603,7 @@
     "regionCode": "NCR",
     "city": "Muntinlupa",
     "themeColor": "#16A34A",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/feu.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/FEU-ALABANG.png",
     "emblemInitials": "FEU ",
     "isOfficial": true
   },
@@ -1615,7 +1615,7 @@
     "regionCode": "NCR",
     "city": "Quezon City",
     "themeColor": "#16A34A",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/feu.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/FEU-DILIMAN.png",
     "emblemInitials": "FEU ",
     "isOfficial": true
   },
@@ -1639,7 +1639,7 @@
     "regionCode": "NCR",
     "city": "Marikina",
     "themeColor": "#16A34A",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/feu.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/FEU-ROOSEVELT.jpg",
     "emblemInitials": "FEU ",
     "isOfficial": true
   },
@@ -1651,7 +1651,7 @@
     "regionCode": "NCR",
     "city": "Pasig",
     "themeColor": "#2563EB",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/deped.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/deped.png",
     "emblemInitials": "DEPE",
     "isOfficial": true
   },
@@ -1663,7 +1663,7 @@
     "regionCode": "R06",
     "city": "Iloilo City",
     "themeColor": "#2563EB",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/wvsu.png",
     "emblemInitials": "WVSU",
     "isOfficial": true
   },
@@ -1675,7 +1675,7 @@
     "regionCode": "R12",
     "city": "General Santos City",
     "themeColor": "#B91C1C",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/MSU_-_Gensan_logo.png",
     "emblemInitials": "MSU ",
     "isOfficial": true
   },
@@ -1687,7 +1687,7 @@
     "regionCode": "R12",
     "city": "General Santos City",
     "themeColor": "#1D4ED8",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/NDDUseal.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/NDDUseal.png",
     "emblemInitials": "NDDU",
     "isOfficial": true
   },
@@ -1699,7 +1699,7 @@
     "regionCode": "R12",
     "city": "General Santos City",
     "themeColor": "#B45309",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/ust.png",
     "emblemInitials": "UST ",
     "isOfficial": true
   },
@@ -1711,7 +1711,7 @@
     "regionCode": "R12",
     "city": "General Santos City",
     "themeColor": "#059669",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/rmmc-gensan.png",
     "emblemInitials": "RMMC",
     "isOfficial": true
   },
@@ -1723,7 +1723,7 @@
     "regionCode": "R12",
     "city": "General Santos City",
     "themeColor": "#1D4ED8",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/GoldenState-Gensan.jpg",
     "emblemInitials": "GOLD",
     "isOfficial": true
   },
@@ -1747,7 +1747,7 @@
     "regionCode": "R12",
     "city": "General Santos City",
     "themeColor": "#0D9488",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/GSDMSFI-Gensan.jpg",
     "emblemInitials": "GENS",
     "isOfficial": true
   },
@@ -1807,7 +1807,7 @@
     "regionCode": "R12",
     "city": "Koronadal City",
     "themeColor": "#1D4ED8",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/rmmc-koronadal.png",
     "emblemInitials": "RMMC",
     "isOfficial": true
   },
@@ -1879,7 +1879,7 @@
     "regionCode": "R12",
     "city": "Kabacan",
     "themeColor": "#15803D",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/USM-Kabacan.png",
     "emblemInitials": "USM ",
     "isOfficial": true
   },
@@ -1891,7 +1891,7 @@
     "regionCode": "R12",
     "city": "Kidapawan City",
     "themeColor": "#15803D",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/USM-Kabacan.png",
     "emblemInitials": "USM ",
     "isOfficial": true
   },
@@ -2107,7 +2107,7 @@
     "regionCode": "R12",
     "city": "General Santos City",
     "themeColor": "#EAB308",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/GoldenState-Gensan.jpg",
     "emblemInitials": "GOLD",
     "isOfficial": true
   },
@@ -2251,7 +2251,7 @@
     "regionCode": "R13",
     "city": "Butuan City",
     "themeColor": "#7C3AED",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/Agusan%20Institute%20of%20Technology.jpg",
     "emblemInitials": "AIT ",
     "isOfficial": true
   },
@@ -2275,7 +2275,7 @@
     "regionCode": "R13",
     "city": "Butuan City",
     "themeColor": "#2563EB",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/ACLC%20College%20of%20Butuan%20City.jpg",
     "emblemInitials": "ACLC",
     "isOfficial": true
   },
@@ -2323,7 +2323,7 @@
     "regionCode": "R13",
     "city": "Bunawan",
     "themeColor": "#15803D",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/Agusan%20del%20Sur%20State%20College%20of%20Agriculture%20and%20Technology.png",
     "emblemInitials": "ASSC",
     "isOfficial": true
   },
@@ -2347,7 +2347,7 @@
     "regionCode": "R13",
     "city": "Bayugan City",
     "themeColor": "#2563EB",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/Agusan%20del%20Sur%20College.jpg",
     "emblemInitials": "ADSC",
     "isOfficial": true
   },
@@ -2503,7 +2503,7 @@
     "regionCode": "R13",
     "city": "Bislig City",
     "themeColor": "#1D4ED8",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/Andres%20Soriano%20Colleges%20of%20Bislig.jpg",
     "emblemInitials": "ASCB",
     "isOfficial": true
   },
@@ -2539,7 +2539,7 @@
     "regionCode": "R13",
     "city": "Butuan City",
     "themeColor": "#1D4ED8",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/Agusan%20Colleges%2C%20Inc..ico",
     "emblemInitials": "AGUS",
     "isOfficial": true
   },
@@ -3211,7 +3211,7 @@
     "regionCode": "R02",
     "city": "Solano",
     "themeColor": "#EA580C",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/Aldersgate%20College.png",
     "emblemInitials": "ALDE",
     "isOfficial": true
   },
@@ -3283,7 +3283,7 @@
     "regionCode": "R03",
     "city": "Angeles City",
     "themeColor": "#16A34A",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/feu.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/FEU-PAMPANGA.png",
     "emblemInitials": "FEU ",
     "isOfficial": true
   },
@@ -3307,7 +3307,7 @@
     "regionCode": "R03",
     "city": "Angeles City",
     "themeColor": "#1D4ED8",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/Angeles%20University%20Foundation.png",
     "emblemInitials": "AUF ",
     "isOfficial": true
   },
@@ -3571,7 +3571,7 @@
     "regionCode": "R04A",
     "city": "Los Baños",
     "themeColor": "#7C3AED",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/up.png",
     "emblemInitials": "UP L",
     "isOfficial": true
   },
@@ -3631,7 +3631,7 @@
     "regionCode": "R04A",
     "city": "Santa Rosa City",
     "themeColor": "#B45309",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/ust.png",
     "emblemInitials": "UST ",
     "isOfficial": true
   },
@@ -3643,7 +3643,7 @@
     "regionCode": "R04A",
     "city": "Biñan City",
     "themeColor": "#15803D",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/dlsu.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/dlsu.png",
     "emblemInitials": "DLSU",
     "isOfficial": true
   },
@@ -3679,7 +3679,7 @@
     "regionCode": "R04A",
     "city": "Dasmariñas City",
     "themeColor": "#15803D",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/dlsu.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/dlsu.png",
     "emblemInitials": "DLSU",
     "isOfficial": true
   },
@@ -3691,7 +3691,7 @@
     "regionCode": "R04A",
     "city": "Dasmariñas City",
     "themeColor": "#059669",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/dlsu.png",
     "emblemInitials": "DLSM",
     "isOfficial": true
   },
@@ -3727,7 +3727,7 @@
     "regionCode": "R04A",
     "city": "Dasmariñas City",
     "themeColor": "#16A34A",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/feu.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/FEU-CAVITE.jpg",
     "emblemInitials": "FEU ",
     "isOfficial": true
   },
@@ -3775,7 +3775,7 @@
     "regionCode": "R04A",
     "city": "Lipa City",
     "themeColor": "#15803D",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/dlsu.png",
     "emblemInitials": "DLSU",
     "isOfficial": true
   },
@@ -3991,7 +3991,7 @@
     "regionCode": "R05",
     "city": "Naga City",
     "themeColor": "#1D4ED8",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/ADNU.avif",
     "emblemInitials": "ATEN",
     "isOfficial": true
   },
@@ -4051,7 +4051,7 @@
     "regionCode": "R05",
     "city": "Legazpi City",
     "themeColor": "#B45309",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/ust.png",
     "emblemInitials": "UST ",
     "isOfficial": true
   },
@@ -4075,7 +4075,7 @@
     "regionCode": "R05",
     "city": "Legazpi City",
     "themeColor": "#0D9488",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/Ago%20Medical%20and%20Educational%20Center.jpg",
     "emblemInitials": "AGO ",
     "isOfficial": true
   },
@@ -4195,7 +4195,7 @@
     "regionCode": "R06",
     "city": "Iloilo City",
     "themeColor": "#7C3AED",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/up.png",
     "emblemInitials": "UP V",
     "isOfficial": true
   },
@@ -4207,7 +4207,7 @@
     "regionCode": "R06",
     "city": "Iloilo City",
     "themeColor": "#1D4ED8",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/wvsu.png",
     "emblemInitials": "WVSU",
     "isOfficial": true
   },
@@ -4423,7 +4423,7 @@
     "regionCode": "R06",
     "city": "Kalibo",
     "themeColor": "#059669",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/Aklan%20State%20University.png",
     "emblemInitials": "ASU ",
     "isOfficial": true
   },
@@ -4495,7 +4495,7 @@
     "regionCode": "R07",
     "city": "Cebu City",
     "themeColor": "#7C3AED",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/up.png",
     "emblemInitials": "UP C",
     "isOfficial": true
   },
@@ -4771,7 +4771,7 @@
     "regionCode": "R08",
     "city": "Tacloban City",
     "themeColor": "#7C3AED",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/up.png",
     "emblemInitials": "UP T",
     "isOfficial": true
   },
@@ -5095,7 +5095,7 @@
     "regionCode": "R09",
     "city": "Dipolog City",
     "themeColor": "#B91C1C",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/Andres%20Bonifacio%20College.png",
     "emblemInitials": "ABC ",
     "isOfficial": true
   },
@@ -5515,7 +5515,7 @@
     "regionCode": "BARMM",
     "city": "Ditsaan-Ramain",
     "themeColor": "#059669",
-    "logoUrl": "",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/Adiong%20Memorial%20Polytechnic%20State%20College.jpg",
     "emblemInitials": "AMPS",
     "isOfficial": true
   },
@@ -5779,7 +5779,7 @@
     "regionCode": "NCR",
     "city": "Manila",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/jollibee.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/jollibee.png",
     "emblemInitials": "JOLL",
     "isOfficial": true
   },
@@ -5791,7 +5791,7 @@
     "regionCode": "NCR",
     "city": "Makati",
     "themeColor": "#EAB308",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/mcdo.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/mcdo.png",
     "emblemInitials": "MCDO",
     "isOfficial": true
   },
@@ -5827,7 +5827,7 @@
     "regionCode": "CAR",
     "city": "Baguio City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/jollibee.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/jollibee.png",
     "emblemInitials": "JOLL",
     "isOfficial": true
   },
@@ -5839,7 +5839,7 @@
     "regionCode": "CAR",
     "city": "Baguio City",
     "themeColor": "#EAB308",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/mcdo.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/mcdo.png",
     "emblemInitials": "MCDO",
     "isOfficial": true
   },
@@ -5887,7 +5887,7 @@
     "regionCode": "R01",
     "city": "Laoag City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/jollibee.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/jollibee.png",
     "emblemInitials": "JOLL",
     "isOfficial": true
   },
@@ -5899,7 +5899,7 @@
     "regionCode": "R01",
     "city": "Dagupan City",
     "themeColor": "#EAB308",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/mcdo.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/mcdo.png",
     "emblemInitials": "MCDO",
     "isOfficial": true
   },
@@ -5935,7 +5935,7 @@
     "regionCode": "R02",
     "city": "Tuguegarao City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/jollibee.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/jollibee.png",
     "emblemInitials": "JOLL",
     "isOfficial": true
   },
@@ -5947,7 +5947,7 @@
     "regionCode": "R02",
     "city": "Tuguegarao City",
     "themeColor": "#EAB308",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/mcdo.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/mcdo.png",
     "emblemInitials": "MCDO",
     "isOfficial": true
   },
@@ -5995,7 +5995,7 @@
     "regionCode": "R03",
     "city": "Angeles City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/jollibee.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/jollibee.png",
     "emblemInitials": "JOLL",
     "isOfficial": true
   },
@@ -6007,7 +6007,7 @@
     "regionCode": "R03",
     "city": "Angeles City",
     "themeColor": "#EAB308",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/mcdo.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/mcdo.png",
     "emblemInitials": "MCDO",
     "isOfficial": true
   },
@@ -6055,7 +6055,7 @@
     "regionCode": "R04A",
     "city": "Calamba City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/jollibee.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/jollibee.png",
     "emblemInitials": "JOLL",
     "isOfficial": true
   },
@@ -6067,7 +6067,7 @@
     "regionCode": "R04A",
     "city": "Santa Rosa City",
     "themeColor": "#EAB308",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/mcdo.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/mcdo.png",
     "emblemInitials": "MCDO",
     "isOfficial": true
   },
@@ -6103,7 +6103,7 @@
     "regionCode": "R04B",
     "city": "Puerto Princesa",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/jollibee.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/jollibee.png",
     "emblemInitials": "JOLL",
     "isOfficial": true
   },
@@ -6115,7 +6115,7 @@
     "regionCode": "R04B",
     "city": "Puerto Princesa",
     "themeColor": "#EAB308",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/mcdo.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/mcdo.png",
     "emblemInitials": "MCDO",
     "isOfficial": true
   },
@@ -6151,7 +6151,7 @@
     "regionCode": "R05",
     "city": "Legazpi City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/jollibee.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/jollibee.png",
     "emblemInitials": "JOLL",
     "isOfficial": true
   },
@@ -6163,7 +6163,7 @@
     "regionCode": "R05",
     "city": "Naga City",
     "themeColor": "#EAB308",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/mcdo.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/mcdo.png",
     "emblemInitials": "MCDO",
     "isOfficial": true
   },
@@ -6211,7 +6211,7 @@
     "regionCode": "R06",
     "city": "Iloilo City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/jollibee.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/jollibee.png",
     "emblemInitials": "JOLL",
     "isOfficial": true
   },
@@ -6223,7 +6223,7 @@
     "regionCode": "R06",
     "city": "Bacolod City",
     "themeColor": "#EAB308",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/mcdo.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/mcdo.png",
     "emblemInitials": "MCDO",
     "isOfficial": true
   },
@@ -6283,7 +6283,7 @@
     "regionCode": "R07",
     "city": "Cebu City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/jollibee.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/jollibee.png",
     "emblemInitials": "JOLL",
     "isOfficial": true
   },
@@ -6295,7 +6295,7 @@
     "regionCode": "R07",
     "city": "Cebu City",
     "themeColor": "#EAB308",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/mcdo.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/mcdo.png",
     "emblemInitials": "MCDO",
     "isOfficial": true
   },
@@ -6343,7 +6343,7 @@
     "regionCode": "R08",
     "city": "Tacloban City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/jollibee.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/jollibee.png",
     "emblemInitials": "JOLL",
     "isOfficial": true
   },
@@ -6355,7 +6355,7 @@
     "regionCode": "R08",
     "city": "Tacloban City",
     "themeColor": "#EAB308",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/mcdo.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/mcdo.png",
     "emblemInitials": "MCDO",
     "isOfficial": true
   },
@@ -6403,7 +6403,7 @@
     "regionCode": "R09",
     "city": "Zamboanga City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/jollibee.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/jollibee.png",
     "emblemInitials": "JOLL",
     "isOfficial": true
   },
@@ -6415,7 +6415,7 @@
     "regionCode": "R09",
     "city": "Zamboanga City",
     "themeColor": "#EAB308",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/mcdo.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/mcdo.png",
     "emblemInitials": "MCDO",
     "isOfficial": true
   },
@@ -6475,7 +6475,7 @@
     "regionCode": "R10",
     "city": "Cagayan de Oro City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/jollibee.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/jollibee.png",
     "emblemInitials": "JOLL",
     "isOfficial": true
   },
@@ -6487,7 +6487,7 @@
     "regionCode": "R10",
     "city": "Cagayan de Oro City",
     "themeColor": "#EAB308",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/mcdo.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/mcdo.png",
     "emblemInitials": "MCDO",
     "isOfficial": true
   },
@@ -6535,7 +6535,7 @@
     "regionCode": "R12",
     "city": "General Santos City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/jollibee.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/jollibee.png",
     "emblemInitials": "JOLL",
     "isOfficial": true
   },
@@ -6547,7 +6547,7 @@
     "regionCode": "R12",
     "city": "General Santos City",
     "themeColor": "#EAB308",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/mcdo.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/mcdo.png",
     "emblemInitials": "MCDO",
     "isOfficial": true
   },
@@ -6595,7 +6595,7 @@
     "regionCode": "R13",
     "city": "Butuan City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/jollibee.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/jollibee.png",
     "emblemInitials": "JOLL",
     "isOfficial": true
   },
@@ -6607,7 +6607,7 @@
     "regionCode": "R13",
     "city": "Butuan City",
     "themeColor": "#EAB308",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/mcdo.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/mcdo.png",
     "emblemInitials": "MCDO",
     "isOfficial": true
   },
@@ -6655,7 +6655,7 @@
     "regionCode": "BARMM",
     "city": "Cotabato City",
     "themeColor": "#DC2626",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/jollibee.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/jollibee.png",
     "emblemInitials": "JOLL",
     "isOfficial": true
   },
@@ -6667,7 +6667,7 @@
     "regionCode": "BARMM",
     "city": "Cotabato City",
     "themeColor": "#EAB308",
-    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Schedly/main/assets/logos/mcdo.png",
+    "logoUrl": "https://raw.githubusercontent.com/Dranyl-23/Reminda/main/assets/logos/mcdo.png",
     "emblemInitials": "MCDO",
     "isOfficial": true
   }
